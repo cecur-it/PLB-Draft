@@ -1,0 +1,5 @@
+*
+!entrypoint.sh
+!pull-models.sh
+!models.json
+!modelfiles/

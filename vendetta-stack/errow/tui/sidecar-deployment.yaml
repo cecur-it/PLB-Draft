@@ -1,0 +1,401 @@
+# errow pod + errow-tui bridge + errow-dind - Kubernetes reference manifests.
+# Traces: CONTRACT §2 (ERROW_TUI_PORT 24225 = Fluent Bit forward input for the TUI bridge; errow-dind; networks `offensive`),
+#         §8.4 (errow.tui_events), §8 (one-shot CLI, DinD via DOCKER_HOST), §11 (RUNTIME.md K8s notes), §15 (tui_events record).
+# Objects: ServiceAccount errow | Deployment errow | PVC errow-dind-data | Deployment+Service errow-dind | NetworkPolicy errow, errow-dind.
+# The deploy tier (kubernetes/**) is authoritative for namespace and cluster wiring. Prerequisites (names only; nothing secret is inlined):
+#   * PVC errow-runs, errow-ndjson     shared volumes (runs: errow rw, errow-viewer/errow-mcp/errow-shipper ro; ndjson: logs, errow rw)
+#   * Secret llm-gateway-token         key llm_gateway_token   (kubectl create secret generic llm-gateway-token --from-file=llm_gateway_token=...)
+#   * Secret errow-dind-client         keys ca.pem cert.pem key.pem   docker client TLS material (same name as errow/mcp/k8s.yaml)
+#   * Secret errow-dind-server         keys ca.pem cert.pem key.pem   dockerd server cert (SAN errow-dind), signed by the same CA
+#   * ConfigMap vendetta-pki-ca        key ca.crt  - CA that signed the llm-gateway certificate (/pki/ca.crt, ERROW_PKI_CA)
+#   * Services llm-gateway:9101, fluent-bit:24225 (forward input, see fluent-bit/), optional scan-target (profile `lab`)
+#
+# TUI bridge - why it is NOT a separate container (honest summary of upstream behaviour):
+#   Errow's Python backend and its Go TUI (errow-tui) talk over a private IPC channel created per TUI launch: on POSIX an inherited
+#   socketpair file descriptor (errow_TUI_FD), on Windows a loopback listener whose address/token (errow_TUI_ADDR + errow_TUI_TOKEN)
+#   exist only in the TUI child's environment. Neither can be reached from another container, not even one sharing the pod's
+#   network namespace. The stack therefore installs the bridge as errow/bin/errow-tui INSIDE the errow image (the real TUI stays
+#   beside it as errow-tui.real). Errow spawns the bridge exactly like the TUI; it relays every frame unchanged to the real TUI
+#   and forwards metadata-only records (direction, frame type, request id, size - never frame bodies) over plain TCP to Fluent
+#   Bit's forward input fluent-bit:24225 (tag errow.tui_events.<ERROW_TUI_FORWARD_TAG>) -> index errow-tui-*. Forward failures
+#   never disturb the TUI (best effort, bounded queue).
+#   TUI events only exist for interactive sessions (kubectl exec -it deploy/errow -- errow-entrypoint --mode scan -- --target ...
+#   without --non-interactive); unattended `--non-interactive` scans start no TUI. Set ERROW_TUI_FORWARD_ADDR=off to disable.
+#
+# errow-dind: Errow reaches Docker only through DOCKER_HOST (never the node socket). dockerd needs privileges: this file uses
+# `privileged: true` (the docker:dind default) and compensates with a dedicated pod, TLS client authentication and the NetworkPolicy
+# below. Safer runtimes, in order of preference (change runtimeClassName and drop `privileged`; the rest stays the same):
+#   * Sysbox (runtimeClassName: sysbox-runc, CRI-O user-namespace annotation) - unprivileged dockerd in a user namespace;
+#   * Kata Containers (runtimeClassName: kata) - dockerd in its own micro-VM, node kernel not shared;
+#   * docker:27-dind-rootless - needs seccomp/AppArmor unconfined and /dev/net/tun, weaker than the two above.
+# Egress identity: containers started by errow-dind share THIS pod's network namespace, so the errow-dind NetworkPolicy IS the sandbox
+# egress policy. It has no rule for vendetta-manager 1514/1515/1516, OpenSearch, llm-gateway or Ollama 11434 (default deny), so
+# sandboxes cannot enrol agents, read alerts or reach the model tier. Do not add namespaceSelector: {} or wide ipBlocks to it.
+# Local-source (white-box) scans: when `--target` is a local directory, Errow bind-mounts its resolved path into the sandbox and the path
+# is resolved by the DOCKER DAEMON (errow/runtime/session_manager.py build_bind_mounts), i.e. inside errow-dind. Such scans need the same
+# volume at the same path (convention: /workspace/repos, read-only) in BOTH pods: add one volume + volumeMount to errow and errow-dind.
+# URL / host / domain targets (everything the MCP policy allows by default) need no shared path.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: errow
+  labels:
+    app.kubernetes.io/name: errow
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: errow-dind-data
+  labels:
+    app.kubernetes.io/name: errow-dind
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-dind
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 40Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow
+  labels:
+    app.kubernetes.io/name: errow
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: errow
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: errow
+        app.kubernetes.io/part-of: vendetta-stack
+        app.kubernetes.io/component: errow
+    spec:
+      serviceAccountName: errow
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: errow
+          image: vendetta-stack/errow:1.0.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ERROW_MODE
+              value: idle
+            - name: CS3_PROFILE
+              value: onprem
+            - name: OLLAMA_PRIMARY_MODEL
+              value: nemotron-3-nano:30b
+            - name: LLM_GATEWAY_URL
+              value: https://llm-gateway:9101
+            - name: LLM_GATEWAY_TOKEN_FILE
+              value: /run/secrets/llm_gateway_token
+            - name: ERROW_PKI_CA
+              value: /pki/ca.crt
+            - name: DOCKER_HOST
+              value: tcp://errow-dind:2376
+            - name: DOCKER_TLS_VERIFY
+              value: "1"
+            - name: DOCKER_CERT_PATH
+              value: /certs/client
+            - name: ERROW_SANDBOX_IMAGE
+              value: vendetta-stack/errow-sandbox:1.0.0
+            - name: ERROW_TUI_FORWARD_ADDR
+              value: fluent-bit:24225
+            - name: ERROW_TUI_FORWARD_TAG
+              value: errow
+            - name: ERROW_WORKDIR
+              value: /workspace
+            - name: ERROW_LOG_DIR
+              value: /var/log/errow
+            - name: HOME
+              value: /home/errow
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          startupProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 15
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+          livenessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 3
+          volumeMounts:
+            - name: errow-runs
+              mountPath: /workspace/errow_runs
+            - name: errow-ndjson
+              mountPath: /var/log/errow
+            - name: home
+              mountPath: /home/errow
+            - name: tmp
+              mountPath: /tmp
+            - name: llm-gateway-token
+              mountPath: /run/secrets
+              readOnly: true
+            - name: pki-ca
+              mountPath: /pki
+              readOnly: true
+            - name: docker-client
+              mountPath: /certs/client
+              readOnly: true
+      volumes:
+        - name: errow-runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+        - name: errow-ndjson
+          persistentVolumeClaim:
+            claimName: errow-ndjson
+        - name: home
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+        - name: llm-gateway-token
+          secret:
+            secretName: llm-gateway-token
+            defaultMode: 0440
+            items:
+              - key: llm_gateway_token
+                path: llm_gateway_token
+        - name: pki-ca
+          configMap:
+            name: vendetta-pki-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: docker-client
+          secret:
+            secretName: errow-dind-client
+            defaultMode: 0440
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-dind
+  labels:
+    app.kubernetes.io/name: errow-dind
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-dind
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: errow-dind
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: errow-dind
+        app.kubernetes.io/part-of: vendetta-stack
+        app.kubernetes.io/component: errow-dind
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: dockerd
+          image: docker:27-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+          imagePullPolicy: IfNotPresent
+          args:
+            - dockerd
+            - --host=unix:///var/run/docker.sock
+            - --host=tcp://0.0.0.0:2376
+            - --tlsverify
+            - --tlscacert=/certs/server/ca.pem
+            - --tlscert=/certs/server/cert.pem
+            - --tlskey=/certs/server/key.pem
+            - --log-opt=max-size=20m
+            - --log-opt=max-file=3
+          ports:
+            - name: docker-tls
+              containerPort: 2376
+              protocol: TCP
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+          startupProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 15
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: dind-data
+              mountPath: /var/lib/docker
+            - name: docker-server
+              mountPath: /certs/server
+              readOnly: true
+      volumes:
+        - name: dind-data
+          persistentVolumeClaim:
+            claimName: errow-dind-data
+        - name: docker-server
+          secret:
+            secretName: errow-dind-server
+            defaultMode: 0400
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-dind
+  labels:
+    app.kubernetes.io/name: errow-dind
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-dind
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: errow-dind
+  ports:
+    - name: docker-tls
+      port: 2376
+      targetPort: docker-tls
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: errow
+  labels:
+    app.kubernetes.io/name: errow
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: errow
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: llm-gateway
+      ports:
+        - port: 9101
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fluent-bit
+      ports:
+        - port: 24225
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: errow-dind
+      ports:
+        - port: 2376
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: errow-dind
+  labels:
+    app.kubernetes.io/name: errow-dind
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-dind
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: errow-dind
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: errow
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: errow-mcp
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: errow-shipper
+      ports:
+        - port: 2376
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: scan-target

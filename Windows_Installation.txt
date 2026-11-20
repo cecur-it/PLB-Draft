@@ -1,0 +1,602 @@
+CS3 v1.1.0 — WINDOWS HOST / SERVER INSTALLATION AND ACCEPTANCE
+================================================================
+
+Status of this document
+-----------------------
+This is an operator procedure, not a claim that a Windows installation has
+already passed. Record PASS only with evidence from the target Windows system.
+Record an unrun capability as NOT RUN and an unavailable prerequisite as
+BLOCKED. Container health, AST parsing, unit tests, synthetic events, and macOS
+or Linux results are supporting evidence only; they are not Windows endpoint,
+cloud workload, containment, or Errow finding acceptance.
+
+The repository has two related but different installation paths:
+
+1. install.ps1, invoked by cs3-launcher.mjs, installs the standalone CS3 console
+   and a native Windows Ollama service. It does NOT deploy Vendetta, Fluentd,
+   OpenSearch, the LLM gateway, Errow, PostgreSQL, or the full SOAR/XDR fabric.
+2. vendetta-stack/docker-compose.yml deploys the separate Vendetta/SIEM/gateway/
+   Errow stack. deployment/docker/docker-compose.yml is another separate stack:
+   console + PostgreSQL + Ollama nodes + optional OpenSearch, not full Vendetta.
+
+Do not describe any one of these paths as the complete product.
+
+1. SUPPORTED TOPOLOGIES AND RELEASE INVARIANTS
+----------------------------------------------
+
+Select a topology only after the discovery in section 2.
+
+A. Windows 11 Pro/Enterprise, x64: supported standalone Host candidate
+   - Elevated PowerShell 5.1+ (PowerShell 7 may also be used).
+   - WSL2 and Docker Desktop with Linux containers and Compose v2.
+   - Native Ollama 0.40.5 runs as the cs3-ollama Windows service and listens only
+     on 127.0.0.1:11434. The Linux console container reaches it through
+     host.docker.internal; container loopback is not Windows loopback.
+   - Run the full Vendetta Bash/Compose tooling from an ext4-backed WSL2
+     distribution, not directly from Windows PowerShell.
+
+B. Windows Server 2019/2022: Linux-guest Host topology
+   - Docker Desktop is not supported on Windows Server. Do not install it there
+     as a production workaround, and do not try to run the Linux images as
+     Windows containers.
+   - Use a supported, patched Linux VM under Hyper-V for Docker Engine, Ollama
+     containers and the full Vendetta stack. Follow install.sh inside that guest
+     for the standalone console, or vendetta-stack documentation for full-stack
+     deployment. Pass GPU/PCI devices through only with a supported hypervisor,
+     driver and capacity design.
+   - Native Windows Server remains a supported forwarder endpoint. A direct
+     install.ps1 onprem deployment on Server is NOT an accepted topology unless
+     a separately supported Linux-container engine and the Windows-to-container
+     Ollama network boundary have been validated. Otherwise mark it BLOCKED.
+
+C. Air-gapped Host
+   - Use Windows 11 for the native standalone path, or the Linux-guest topology
+     for full-stack services. Stage the verified bundle, Ollama executable, NSSM,
+     console image and all full-stack images before isolation.
+   - Telemetry and update checks must be false. No model or image substitution is
+     permitted. A connected staging result is not air-gap acceptance.
+
+Production model contract (do not edit around a resource failure):
+
+  Triage:          nemotron-3-nano:30b -> gemma4:26b -> deterministic heuristics
+  Security/Errow:  nemotron-3-nano:30b -> gemma4:31b only
+  Guard/judge:     gemma4:26b, distinct from security models
+  Preload:         nemotron-3-nano:30b,gemma4:26b,gemma4:31b
+  Token budgets:   triage 1024; security 2048; Errow 4096
+  Cache:           triage only; never security or Errow responses
+  Ollama residency: OLLAMA_MAX_LOADED_MODELS=3
+
+CS3_MODEL_ERROW_SECURITY=cs3-errow-security is an LLM-gateway route, NOT an
+Ollama tag. INFERENCE_MODEL_ERROW_SECURITY and OLLAMA_ERROW_SECURITY_MODEL remain
+nemotron-3-nano:30b. Qwensploit is optional evaluation-only: never add it to a
+production fallback chain, preload, default bundle or production provisioning.
+
+Resource planning is a hard gate, not a benchmark result. onboarding/models.json
+lists 16 GiB minimum VRAM for gemma4:26b and 24 GiB for each 30b/31b model, with
+32/64 GiB system-RAM planning minima. Three resident models can exceed a single
+GPU and can exceed the standalone Host's useful capacity. Budget at least 200 GB
+free NVMe storage for model weights and bundle staging, plus separate OpenSearch
+retention and backup space. If three-model residency cannot be sustained, mark
+the production topology BLOCKED; do not silently reduce models or routes. See
+vendetta-stack/docs/capacity.md for required load/soak tests.
+
+2. PHASE 1 — CAPTURE WINDOWS GROUND TRUTH FIRST
+----------------------------------------------
+
+Use an elevated PowerShell on the intended Host. Keep raw output in an access-
+controlled operations location. Sanitize hostnames, IPs, usernames, tenant names,
+certificate subjects, registry paths and any proxy credentials before creating a
+shareable evidence pack. Never paste .env, tokens, private keys or passwords into
+transcripts.
+
+Set a repository path appropriate to the actual checkout, for example C:\CS3:
+
+  $Repo = 'C:\CS3'
+  Set-Location $Repo
+  $RawEvidence = 'D:\CS3-Evidence-Raw\ground-truth'
+  New-Item -ItemType Directory -Path $RawEvidence -Force | Out-Null
+  $Transcript = Join-Path $RawEvidence 'discovery-transcript.txt'
+  Start-Transcript -Path $Transcript -Force
+
+  Get-Date -Format o
+  Get-ComputerInfo | Select-Object WindowsProductName,WindowsVersion,OsBuildNumber,
+    OsArchitecture,CsName,CsTotalPhysicalMemory,PsVersion | Format-List
+  $PSVersionTable | Format-List
+  Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,
+    OSArchitecture,FreePhysicalMemory,TotalVisibleMemorySize | Format-List
+  Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,
+    TotalPhysicalMemory,HypervisorPresent | Format-List
+  Get-CimInstance Win32_Processor | Select-Object Name,Architecture,
+    NumberOfCores,NumberOfLogicalProcessors,VirtualizationFirmwareEnabled,
+    SecondLevelAddressTranslationExtensions | Format-List
+  Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,
+    DriverDate,AdapterRAM,VideoProcessor | Format-List
+  Get-PhysicalDisk | Select-Object FriendlyName,MediaType,BusType,HealthStatus,Size |
+    Format-Table -AutoSize
+  Get-Volume | Where-Object DriveLetter | Select-Object DriveLetter,FileSystemLabel,
+    FileSystem,Size,SizeRemaining | Format-Table -AutoSize
+
+  foreach ($feature in 'Microsoft-Windows-Subsystem-Linux',
+      'VirtualMachinePlatform','Microsoft-Hyper-V-All','Containers') {
+    Get-WindowsOptionalFeature -Online -FeatureName $feature -ErrorAction Continue |
+      Select-Object FeatureName,State
+  }
+  wsl.exe --status
+  wsl.exe --version
+  wsl.exe --list --verbose
+  docker version
+  docker info
+  docker compose version
+
+  $Identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+  $Principal = [Security.Principal.WindowsPrincipal]::new($Identity)
+  [pscustomobject]@{
+    IsAdministrator = $Principal.IsInRole(
+      [Security.Principal.WindowsBuiltInRole]::Administrator)
+    IsElevatedHost = $true
+  } | Format-List
+  Get-NetFirewallProfile | Select-Object Name,Enabled,DefaultInboundAction,
+    DefaultOutboundAction | Format-Table -AutoSize
+  Get-MpComputerStatus -ErrorAction Continue | Select-Object AMServiceEnabled,
+    AntivirusEnabled,BehaviorMonitorEnabled,RealTimeProtectionEnabled,
+    IsTamperProtected | Format-List
+  Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct `
+    -ErrorAction Continue | Select-Object displayName,productState,pathToSignedProductExe
+  netsh.exe winhttp show proxy
+  Get-DnsClientServerAddress | Select-Object InterfaceAlias,ServerAddresses |
+    Format-Table -AutoSize
+  Get-NetTCPConnection -State Listen | Where-Object {
+    $_.LocalPort -in 3000,3001,8088,8765,9101,9102,9103,11434,1514,1515,1516,55000,9200
+  } | Select-Object LocalAddress,LocalPort,OwningProcess | Format-Table -AutoSize
+  Get-ChildItem Cert:\LocalMachine\My | Select-Object Subject,Issuer,NotAfter,
+    HasPrivateKey | Format-List
+  Get-NetIPConfiguration | Select-Object InterfaceAlias,IPv4Address,IPv6Address,
+    IPv4DefaultGateway,DNSServer | Format-List
+
+  # Run only on a connected profile. Use approved internal destinations instead
+  # of public names where site policy requires it.
+  Test-NetConnection cs3.example.internal -Port 443 -InformationLevel Detailed
+  Resolve-DnsName cs3.example.internal -ErrorAction Continue
+
+  # Record the network classification explicitly; do not infer air gap from a
+  # failed public Internet test.
+  Write-Output 'NETWORK_CLASSIFICATION=CONNECTED|AIR_GAPPED (operator must select)'
+  Stop-Transcript
+
+Important limitations:
+- Win32_VideoController AdapterRAM is not authoritative for every modern GPU.
+  Also capture the vendor tool (for example nvidia-smi) and driver details.
+- SecurityCenter2 may be absent on Server. Record that result and use the
+  installed security product's supported inventory method.
+- Do not dump proxy environment variables or credential-bearing URLs into raw
+  evidence. Record only sanitized proxy host/port and bypass policy.
+- A listening port is not a health check. A GPU name is not proof of usable VRAM.
+  WSL installed is not proof that Docker Engine is healthy.
+
+Before continuing, save sanitized command output for WSL, Hyper-V, Docker,
+Compose, GPU, RAM/disk, firewall/security software, DNS/proxy, certificates and
+network classification. Select topology A, B or C now. If the required runtime,
+administrator rights, virtualization, storage or model resources are absent,
+stop with BLOCKED.
+
+3. PARSE EVERY POWERSHELL SCRIPT BEFORE EXECUTION
+-------------------------------------------------
+
+This checks PowerShell syntax only; it does not prove Windows runtime behavior.
+Run it on the actual PowerShell version that will invoke the scripts.
+
+  $Scripts = @(
+    (Join-Path $Repo 'install.ps1'),
+    (Join-Path $Repo 'deployment\agents\Install-CecurForwarder.ps1'),
+    (Join-Path $Repo 'deployment\agents\Test-CecurForwarder.ps1')
+  )
+  $AstFailed = $false
+  foreach ($Script in $Scripts) {
+    $Tokens = $null
+    $Errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+      $Script,[ref]$Tokens,[ref]$Errors) | Out-Null
+    if ($Errors.Count) {
+      $AstFailed = $true
+      $Errors | ForEach-Object { Write-Error "$Script: $($_.Message)" }
+    } else {
+      Write-Output "AST PASS: $Script"
+    }
+  }
+  if ($AstFailed) { throw 'PowerShell AST validation failed; do not install.' }
+
+4. WINDOWS 11 STANDALONE CONSOLE + OLLAMA INSTALL
+-------------------------------------------------
+
+Prerequisites:
+- Node.js 18+ for cs3-launcher.mjs and the onboarding wizard.
+- Docker Desktop Linux engine healthy; Docker Desktop must remain running.
+- Elevated PowerShell, winget for connected Ollama/NSSM installation, and network
+  access to the approved package/model registries.
+- A clean source checkout with no dependency/cache directories required.
+- An access-controlled backup location outside the repository.
+
+Connected on-prem installation:
+
+  Set-Location C:\CS3
+  node --version
+  docker version
+  docker compose version
+  node cs3-launcher.mjs --profile onprem
+
+The wizard generates local secrets and the .env. Protect that file and do not
+commit or attach it. The installer builds cs3-soc-console:1.1.0 from the packaged
+source and digest-pinned Node base. A replacement registry image must be written
+as image@sha256:<64-hex>; a mutable latest tag is not a production pin.
+
+Do not use --skip-install or --skip-health for acceptance. --skip-wizard is only
+for a reviewed rerun with an existing backed-up .env.
+
+The installer enforces the production model contract, creates/configures the
+low-privilege cs3-ollama service, sets machine/process/NSSM model residency to 3,
+pulls only the three preload tags, and verifies every tag with ollama list/show.
+It preserves the old console during replacement and restores it on start or
+health failure. A stale cs3-soc-console-install-backup requires operator review;
+do not blindly delete it.
+
+Validate independently and save sanitized output:
+
+  Get-Service cs3-ollama | Format-List Name,Status,StartType
+  Get-CimInstance Win32_Service -Filter "Name='cs3-ollama'" |
+    Select-Object Name,State,StartName,PathName | Format-List
+  [Environment]::GetEnvironmentVariable('OLLAMA_HOST','Machine')
+  [Environment]::GetEnvironmentVariable('OLLAMA_MODELS','Machine')
+  [Environment]::GetEnvironmentVariable('OLLAMA_MAX_LOADED_MODELS','Machine')
+  ollama --version
+  ollama list
+  ollama show nemotron-3-nano:30b
+  ollama show gemma4:26b
+  ollama show gemma4:31b
+  Invoke-RestMethod http://127.0.0.1:11434/api/tags | ConvertTo-Json -Depth 6
+  docker image inspect cs3-soc-console:1.1.0
+  docker ps --filter name=cs3-soc-console
+  docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' cs3-soc-console
+  Invoke-RestMethod http://127.0.0.1:3000/api/health | ConvertTo-Json -Depth 6
+
+The console health response must be nominal and the container must be healthy.
+An audit.durable:false response proves that durable PostgreSQL audit storage is
+not configured; it is not SIEM durability acceptance.
+
+Air-gap standalone installation:
+
+  node scripts/verify-bundle.mjs --bundle D:\Stage\cs3-model-bundle-<tag>.tar `
+    --sha256 D:\Stage\cs3-model-bundle-<tag>.tar.sha256 --verbose
+  node cs3-launcher.mjs --profile airgap --bundle D:\Stage\cs3-model-bundle-<tag>.tar
+
+The bundle must contain the required models and, for a new Host, bin\ollama.exe,
+bin\nssm.exe and the console image expected by CS3_CONSOLE_IMAGE. The launcher
+and installer verify the bundle before extraction. Do not bypass a hash/release
+mismatch. Confirm there is no external model/image traffic and rerun every
+list/show/health check without network access.
+
+Standalone rollback/recovery:
+
+1. Before changes, back up .env, ProgramData\CS3 and required image/model
+   inventories to encrypted, access-controlled storage. Stop cs3-ollama before a
+   file-consistent model-store backup; restart it afterward and check health.
+2. Preserve the existing console and service credentials. Never clear Docker
+   volumes, delete the service account, or rotate credentials as a cleanup step.
+3. On a failed console replacement, confirm the installer restored the old
+   container. If a rollback container remains, inspect both containers and logs
+   before any manual rename/start; preserve evidence first.
+4. Restore the reviewed .env and file-consistent model store only while the
+   corresponding service is stopped. Reapply with:
+
+     node cs3-launcher.mjs --profile onprem --skip-wizard
+
+5. Repeat all model, service, container and health checks. Backup existence alone
+   is not restore acceptance. A Host reboot and endpoint rollback rehearsal are
+   separate required acceptance rows.
+
+5. FULL VENDETTA / SIEM / ERROW STACK (WSL2 OR LINUX GUEST)
+-----------------------------------------------------------
+
+Perform this section only if the objective includes Vendetta, durable SIEM,
+gateway routing, Errow and SOAR. It is not performed by install.ps1.
+
+Use a supported Ubuntu/Debian WSL2 distribution on Windows 11, or the Hyper-V
+Linux guest on Server. Install Docker Engine according to the selected supported
+topology, plus bash, jq, curl, openssl, Node.js where required, and Compose v2.
+Do not generate private keys or secret files under /mnt/c: that filesystem does
+not provide the required POSIX ownership/mode semantics.
+
+From the Linux shell, stage a fresh source copy in the Linux filesystem. This
+example copies a Windows checkout without its .git directory, root .env or
+node_modules; use the approved release archive instead when available:
+
+  umask 077
+  mkdir -p "$HOME/src/CS3"
+  tar -C /mnt/c/CS3 \
+    --exclude=.git --exclude=.env --exclude=node_modules -cf - . |
+    tar -C "$HOME/src/CS3" -xf -
+  cd "$HOME/src/CS3/vendetta-stack"
+
+For a Hyper-V guest, extract/clone the same reviewed release directly into the
+Linux filesystem instead of using the /mnt/c command above.
+
+Verify the actual Docker kernel setting and required tools:
+
+  docker version
+  docker compose version
+  docker run --rm busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec \
+    sysctl vm.max_map_count
+  scripts/bootstrap.sh --check
+
+vm.max_map_count must be at least 262144 in the Docker engine kernel. Configure
+it persistently using the supported Docker/WSL/Linux mechanism for the chosen
+topology. Do not continue if only an unrelated WSL distribution was changed.
+
+Generate secrets/PKI locally and keep them in the Linux filesystem:
+
+  scripts/bootstrap.sh
+  scripts/bootstrap.sh --check
+
+For production key ownership, follow vendetta-stack/scripts/README.md: use a
+reviewed container group with --key-group, or explicitly assign only the required
+keys to the documented container UIDs. Never use --dev-readable-keys or
+--dev-readable-secrets as a production fix. Back up pki/, secrets/ and .env in
+encrypted storage before changing them.
+
+Review the generated .env without printing secrets. The shipped generic example uses
+CS3_PROFILE=cloud, so a sovereign Host must explicitly select onprem (or airgap for
+the isolated topology); do not inherit that example value accidentally. It must
+preserve:
+
+  CS3_PROFILE=onprem
+  CS3_LLM_MODE=local
+  CS3_ROUTER_URL=https://llm-gateway:9101
+  CS3_MODEL_TRIAGE=nemotron-3-nano:30b
+  CS3_MODEL_REASONING=gemma4:26b
+  CS3_MODEL_REASONING_DEEP=gemma4:31b
+  CS3_MODEL_SECURITY=nemotron-3-nano:30b
+  CS3_MODEL_ERROW_SECURITY=cs3-errow-security
+  INFERENCE_MODEL_TRIAGE=nemotron-3-nano:30b
+  INFERENCE_MODEL_FORENSIC=gemma4:26b
+  INFERENCE_MODEL_REASONING_DEEP=gemma4:31b
+  INFERENCE_MODEL_SECURITY=nemotron-3-nano:30b
+  INFERENCE_MODEL_ERROW_SECURITY=nemotron-3-nano:30b
+  INFERENCE_MODEL_GUARD=gemma4:26b
+  OLLAMA_PRELOAD_MODELS=nemotron-3-nano:30b,gemma4:26b,gemma4:31b
+  OLLAMA_MAX_LOADED_MODELS=3
+  INFERENCE_MAX_TOKENS_TRIAGE=1024
+  INFERENCE_MAX_TOKENS_SECURITY=2048
+  INFERENCE_MAX_TOKENS_ERROW=4096
+
+CS3_ROUTER_KEY is supplied through the supported secret-file mechanism by the
+stack; never copy its value into evidence. TLS files, approval keys, telemetry
+controls and target allowlists must be reviewed before enabling live actions.
+
+Start the real inference profile and the required service profiles. Add GPU
+overlay only after validating NVIDIA Container Toolkit and supported passthrough:
+
+  docker compose --profile llm --profile errow --profile dashboards \
+    --profile manager up -d --build --wait
+  # NVIDIA topology only:
+  # docker compose -f docker-compose.yml -f docker-compose.gpu.yml \
+  #   --profile llm --profile errow --profile dashboards --profile manager \
+  #   up -d --build --wait
+
+  scripts/validate-models-json.sh --release
+  # Do not use --models all for production: the registry also contains the
+  # optional evaluation-only Qwensploit entry. Require exactly these three tags.
+  scripts/enroll-ollama.sh --node ollama-1 --container \
+    "$(docker compose ps -q ollama-1)" \
+    --models 'nemotron-3-nano:30b,gemma4:26b,gemma4:31b' --release
+  scripts/healthcheck.sh --wait 300
+
+If the Compose service/container name or model-store layout differs, use
+scripts/enroll-ollama.sh --help and record the actual reviewed command. Do not
+substitute mock-llm for llm. A Docker-only health result on Docker Desktop may be
+WARN because container IPs are not routable from Windows/macOS; run HTTP/TLS
+verification from a container on the intended Compose network. Do not convert
+that limitation into PASS.
+
+Ports: the standalone console defaults to host port 3000; Vendetta Grafana
+defaults to host port 3001 (container port 3000). OpenSearch Dashboards, Errow
+Viewer and other services use their documented bindings. Do not point Grafana at
+3000 and then claim it is unhealthy because the console answers there. Keep all
+published ports loopback-only unless a separately reviewed TLS reverse proxy and
+firewall design exposes them.
+
+Configuration/restart acceptance:
+- Capture docker compose config with every secret value redacted.
+- Record image references and digests, model list/show, healthcheck output and
+  service-to-service HTTP/TLS probes across the actual network boundaries.
+- Restart each service in a controlled order. After llm-gateway, also restart
+  ollama-lb because it shares the gateway network namespace.
+- Reboot the WSL2/Linux guest and then the Windows Host where supported. Verify
+  secrets, PKI, models, OpenSearch documents, PostgreSQL/audit state and policy
+  survive. A planned restart failure is FAIL/BLOCKED, not a reason to restore
+  from synthetic data.
+
+6. WINDOWS ENDPOINT / FORWARDER ONBOARDING
+----------------------------------------
+
+Read deployment/agents/PREREQUISITES.md and
+on-prem/Literature/03_REAL_ENDPOINT_ONBOARDING.md. The endpoint must have a real
+unique hostname/inventory record, synchronized time, routed outbound HTTPS,
+trusted CA, and verified Fluent Bit media. Enrollment must be performed by an
+authorized manage_fleet administrator. Never put credentials or tokens on a
+command line or in evidence.
+
+On the enrollment operator machine, dry-run the real inventory first:
+
+  on-prem/bin/enroll-real-endpoints.sh --url https://cs3.example.internal \
+    --file hosts.csv --group prod --dry-run
+  on-prem/bin/enroll-real-endpoints.sh --url https://cs3.example.internal \
+    --file hosts.csv --group prod --out cs3-enrollment.json
+
+Those commands are Bash and therefore run in the approved Linux/WSL enrollment
+environment. cs3-enrollment.json contains one-time secrets: protect it, deliver
+only each endpoint's own token, and securely remove it after the approved claim
+and evidence process.
+
+On each Windows endpoint, preserve deployment/agents and its templates relative
+paths, then run in elevated PowerShell:
+
+  $Token = Read-Host -AsSecureString 'One-time enrollment token'
+  Set-Location C:\CS3\deployment\agents
+  .\Install-CecurForwarder.ps1 `
+    -ConsoleUrl https://cs3.example.internal `
+    -AgentId <enrolled-agent-id> `
+    -EnrollmentToken $Token `
+    -CaFile C:\Stage\internal-ca.pem `
+    -FluentBitZip C:\Stage\fluent-bit-<approved-version>-win64.zip `
+    -FluentBitSha256 <publisher-provided-64-hex-sha256>
+
+  .\Test-CecurForwarder.ps1
+  Get-Service CecurForwarder
+  Get-ScheduledTask -TaskName CecurForwarderWatchdog
+
+The ZIP hash is mandatory and checked before extraction. A rerun without a token
+keeps existing credentials. The template collects Security, System, Application
+and PowerShell Operational channels; configure Windows Audit Policy and
+PowerShell logging so real events exist. Authenticated ingest pins the enrolled
+agent identity; syslog/source labels alone are not cryptographic device identity.
+
+Reject acceptance if an unauthenticated claim or ingest succeeds, a token can be
+reused, the agent ID does not match inventory, TLS verification was bypassed, or
+real endpoint events are absent. Generate genuine Windows logon/process/PowerShell
+events under an authorized test plan; do not use only a synthetic diagnostic.
+
+The repository currently has no Windows equivalent of the Linux FIM/SCA/
+vulnerability scan agent and no native Windows gateway profile. Event-forwarder
+health does not prove behavioral XDR, vulnerability coverage, remote response,
+containment or restoration. Those rows remain BLOCKED until a real supported
+Windows response agent/manager path is installed and exercised.
+
+Endpoint rollback:
+
+  .\Install-CecurForwarder.ps1 -Uninstall `
+    -BackupDir D:\Protected\CecurForwarder-Backup-<unique-timestamp>
+
+The destination must not already exist. Uninstall stops the writer, creates an
+ACL-protected backup, verifies SHA-256 for every copied file and writes
+manifest.json before removing state. The backup contains credentials and private
+configuration; encrypt/protect it and never include it in a public evidence pack.
+Restore/reinstall is accepted only after service health, identity, ingest and
+fresh real-event indexing pass.
+
+7. LIVE CAPABILITY ACCEPTANCE — REQUIRED, NOT IMPLIED
+-----------------------------------------------------
+
+Use separate PASS/FAIL/BLOCKED rows for every item below. Include command,
+timestamp, target identity, raw secret-free result and artifact hash. NOT RUN is
+not PASS.
+
+XDR/EDR:
+- Authenticated enrollment and rejection of unauthenticated enrollment/response.
+- Heartbeat and inventory tied to the actual endpoint identity.
+- Real process/behavioral telemetry and active monitoring/alerting.
+- Remotely approved response, containment, verified network restriction and
+  restoration on an authorized test endpoint.
+- A Windows forwarder alone does not satisfy these rows.
+
+SIEM:
+- Real Windows Event Logs, genuine syslog from each device/source class, Host
+  audit trails and audit-ledger events.
+- Source attribution, event timestamps, parsing, TLS/authentication, search and
+  index identity.
+- Direct OpenSearch/indexer evidence after console/service and Host restart.
+  HTTP ingest success with indexed:false is failure.
+- Follow on-prem/Literature/04_VALIDATION_AND_ACCEPTANCE.md. Its synthetic relay
+  marker is a path check only, not a substitute for real device events.
+
+Cloud/hybrid:
+- Representative managed server, VM and container identities, telemetry and
+  applicable response policy.
+- Container tests do not prove public/private cloud acceptance. Without an
+  authorized cloud account/workloads, cloud-specific rows are BLOCKED.
+
+SOAR/remediation:
+- Enrolled, authenticated and reachable asset; reviewed script and input;
+  required distinct approvals; execution result; audit event; containment;
+  restoration and rollback evidence.
+- Missing approval must return a typed denial. Unreachable assets must fail
+  closed. Failed execution must never be reported as successful containment.
+- Enable live actions only after manager TLS pinning, approval keys and response
+  policy are validated per vendetta-stack/scripts/README.md. Defaults are dry-run.
+
+Agentic CS3/Vendetta/Errow:
+- Exercise real gateway routes and native tool calls; capture X-CS3-Model,
+  X-CS3-Task-Class and X-CS3-Degraded-Model-Fallback where applicable.
+- Prove role routes, approval propagation, token budgets, triage-only caching and
+  guard/security model separation. Security and Errow responses must not be
+  served from cache.
+- Rehearse model fallback only on staging and record the reason/header. Direct
+  air-gap mode must fail rather than silently substitute a model.
+- Replay archived model/router acceptance separately from this Windows matrix.
+
+Errow:
+- Use only an authorized, known-vulnerable local lab target in the reviewed
+  allowlist. The optional Compose lab profile is staging-only:
+
+    docker compose --profile llm --profile errow --profile lab up -d --build --wait
+
+- Configure/enroll the real Errow MCP path with scripts/enroll-errow.sh and run
+  the documented smoke scan against that target. Require genuine findings;
+  empty findings, unexplained fallback or sandbox failure are integration
+  failures to investigate, not a clean bill of health.
+- Validate report.json, SARIF, encrypted report artifacts and independent SHA-256
+  hashes. Confirm production requests use the Security/Errow route and never
+  Qwensploit. Redact target secrets and exploit credentials from shared evidence.
+
+8. BACKUP, RESTORE AND HANDOFF
+------------------------------
+
+Standalone Host:
+- Back up the populated root .env, ProgramData\CS3, service/image/model inventory
+  and installation transcripts. Stop the writer for file-consistent state.
+- Preserve existing credentials and model bundles until rollback acceptance ends.
+- Rehearse console failure rollback, endpoint uninstall backup, restoration and
+  clean reapplication. Do not use docker system prune, compose down -v, credential
+  deletion or broad volume cleanup.
+
+Full stack:
+- Use vendetta-stack/scripts/backup-opensearch.sh for snapshots and encrypted
+  file backups. Back up .env, pki/, secrets/ (including approval keys), model
+  configuration/blobs, Compose definitions and PostgreSQL state using their
+  supported procedures.
+- Example, after reviewing its flags and providing the protected passphrase file:
+
+    scripts/backup-opensearch.sh --keep 14 --verify-restore \
+      --include-secrets --passphrase-file secrets/backup_passphrase
+
+- A snapshot is not accepted until restore verification succeeds. Keep PKI
+  archives outside pki/ and never expose private keys in the evidence pack.
+
+Evidence pack contents:
+- Sanitized ground-truth and real installation/rollback transcripts.
+- Secret-free configuration audit and image/model inventory with digests.
+- Service/container health and actual live response headers.
+- Separate capability-by-capability PASS/FAIL/BLOCKED tables.
+- Errow findings/reports, approval/audit/containment/restoration evidence.
+- Open risks, measured resources, topology and exact commands actually run.
+- SHA-256 manifest for every evidence artifact. Hash the manifest's content list
+  without recursively hashing the manifest itself.
+
+Do not declare the Windows Host fully functional while any requested capability
+is FAIL, BLOCKED or NOT RUN. If changes are uncommitted, provide a file-change
+manifest and do not claim a commit exists.
+
+9. PRIMARY REFERENCES
+---------------------
+
+  README.md
+  install.ps1
+  cs3-launcher.mjs
+  onboarding/models.json
+  deployment/agents/PREREQUISITES.md
+  deployment/operations/agent-fleet-management.md
+  deployment/operations/model-update-rollback.md
+  on-prem/Literature/03_REAL_ENDPOINT_ONBOARDING.md
+  on-prem/Literature/04_VALIDATION_AND_ACCEPTANCE.md
+  vendetta-stack/README.md
+  vendetta-stack/scripts/README.md
+  vendetta-stack/docs/capacity.md
+  vendetta-stack/errow/RUNTIME.md

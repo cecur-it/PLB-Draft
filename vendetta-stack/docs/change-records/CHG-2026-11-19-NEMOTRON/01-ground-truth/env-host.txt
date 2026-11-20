@@ -1,0 +1,8 @@
+ProductName:		macOS
+ProductVersion:		15.8.2
+BuildVersion:		24H230
+arm64
+29.9.3
+Docker Compose version v5.7.0
+ollama version is 0.40.5
+Warning: client version is 0.40.15

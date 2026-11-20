@@ -1,0 +1,60 @@
+{
+  "policy": {
+    "description": "Errow findings retention: hot 90d, warm (box_type=warm, force-merged) from 90d to 365d, cold from 365d (snapshot to vendetta-snapshots first, then 0 replicas, write-blocked, box_type=cold), delete after 7 years (2555d). Auto-attached to errow-findings-* and errow-sarif-* (priority 100). A failed snapshot keeps the index (and its replicas) in the cold state; nothing is deleted without a snapshot.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          { "index_priority": { "priority": 100 } }
+        ],
+        "transitions": [
+          { "state_name": "warm", "conditions": { "min_index_age": "90d" } }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [
+          { "index_priority": { "priority": 50 } },
+          { "allocation": { "require": { "box_type": "warm" }, "wait_for": false } },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "10m" },
+            "force_merge": { "max_num_segments": 1 }
+          }
+        ],
+        "transitions": [
+          { "state_name": "cold", "conditions": { "min_index_age": "365d" } }
+        ]
+      },
+      {
+        "name": "cold",
+        "actions": [
+          { "index_priority": { "priority": 10 } },
+          { "read_only": {} },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "30m" },
+            "snapshot": {
+              "repository": "vendetta-snapshots",
+              "snapshot": "{{ctx.index}}-{{ctx.indexUuid}}"
+            }
+          },
+          { "replica_count": { "number_of_replicas": 0 } },
+          { "allocation": { "require": { "box_type": "cold" }, "wait_for": false } }
+        ],
+        "transitions": [
+          { "state_name": "delete", "conditions": { "min_index_age": "2555d" } }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          { "delete": {} }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      { "index_patterns": ["errow-findings-*", "errow-sarif-*"], "priority": 100 }
+    ]
+  }
+}

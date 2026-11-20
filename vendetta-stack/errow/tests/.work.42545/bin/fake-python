@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+case ${2-} in ping | has-image | load) exit 0 ;; esac
+exit 1

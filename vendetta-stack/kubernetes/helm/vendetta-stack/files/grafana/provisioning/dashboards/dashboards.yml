@@ -1,0 +1,18 @@
+# Traces: PROMPT §5 Observability (dashboards as code), CONTRACT §8.11
+# File provider: every *.json in /var/lib/grafana/dashboards (mount grafana/dashboards there, ro) is loaded into the folder
+# "Vendetta Stack". Dashboards are code: UI edits are not persisted (allowUiUpdates false, disableDeletion true); copy a
+# dashboard with "Save as" to experiment. Mount: this directory at /etc/grafana/provisioning/dashboards (ro).
+apiVersion: 1
+
+providers:
+  - name: vendetta-stack
+    orgId: 1
+    folder: Vendetta Stack
+    folderUid: cs3-vendetta-stack
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

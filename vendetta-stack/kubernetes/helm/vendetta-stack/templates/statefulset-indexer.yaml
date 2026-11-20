@@ -1,0 +1,286 @@
+# Traces: CONTRACT section 2 (OpenSearch 9200/9300, PKI, secrets), section 11 opensearch/RUNTIME.md (Kubernetes).
+{{- if .Values.opensearch.enabled }}
+{{- $os := .Values.opensearch }}
+{{- $replicas := int $os.replicas }}
+{{- $single := eq $replicas 1 }}
+{{- $seeds := list }}
+{{- $managers := list }}
+{{- range $i := until $replicas }}
+{{- $seeds = append $seeds (printf "opensearch-%d.opensearch-headless" $i) }}
+{{- $managers = append $managers (printf "opensearch-%d" $i) }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-headless
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch") | indent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "opensearch") | indent 4 }}
+  ports:
+    - {name: transport, port: 9300, targetPort: transport}
+    - {name: http, port: 9200, targetPort: http}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "opensearch") | indent 4 }}
+  ports:
+    - {name: http, port: 9200, targetPort: http}
+---
+{{- if and $os.snapshots.enabled (not $os.snapshots.existingClaim) }}
+{{ include "vs.pvc" (dict "root" . "name" "opensearch-snapshots" "component" "opensearch" "size" $os.snapshots.size "class" "" "shared" true) }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opensearch
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch") | indent 4 }}
+spec:
+  serviceName: opensearch-headless
+  replicas: {{ $replicas }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "opensearch") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 120
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 1000) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" $os "component" "opensearch" "spread" true) | indent 6 }}
+      {{- if $os.setMaxMapCount }}
+      initContainers:
+        - name: sysctl
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.busybox) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/bin/sh", "-ec", "sysctl -w vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+            runAsNonRoot: false
+            runAsUser: 0
+            readOnlyRootFilesystem: true
+          resources:
+            requests: {cpu: 10m, memory: 8Mi}
+            limits: {cpu: 100m, memory: 16Mi}
+      {{- end }}
+      containers:
+        - name: opensearch
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.opensearch) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/opensearch/entrypoint.sh"]
+          env:
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: NODE_BOX_TYPE, value: {{ $os.boxType | quote }}}
+            - {name: OPENSEARCH_CLUSTER_NAME, value: {{ $os.clusterName | quote }}}
+            - {name: OPENSEARCH_JAVA_OPTS, value: {{ $os.javaOpts | quote }}}
+            - {name: OPENSEARCH_MEMORY_LOCK, value: {{ $os.memoryLock | quote }}}
+            - {name: OPENSEARCH_PASSWORD_FILE, value: /run/secrets/opensearch_admin_password}
+            - {name: OPENSEARCH_SEED_HOSTS, value: {{ join "," $seeds | quote }}}
+            - {name: OPENSEARCH_INITIAL_MANAGERS, value: {{ join "," $managers | quote }}}
+          ports:
+            - {name: http, containerPort: 9200}
+            - {name: transport, containerPort: 9300}
+          startupProbe:
+            exec:
+              command: {{ include "vs.osHealthCmd" . }}
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: {{ include "vs.osHealthCmd" . }}
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          securityContext:
+{{ include "vs.containerSecurity" (dict "readOnly" false) | indent 12 }}
+          resources:
+{{ toYaml $os.resources | indent 12 }}
+          volumeMounts:
+            - {name: tree, mountPath: /opensearch, readOnly: true}
+            - name: tree
+              mountPath: /usr/share/opensearch/config/opensearch.yml
+              subPath: {{ ternary "opensearch.single-node.yml" "opensearch.yml" $single }}
+              readOnly: true
+            - {name: pki, mountPath: /usr/share/opensearch/config/certs, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: data, mountPath: /usr/share/opensearch/data}
+            - {name: snapshots, mountPath: /usr/share/opensearch/snapshots}
+      volumes:
+        - name: tree
+          configMap:
+            name: opensearch-config
+            defaultMode: 0555
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "opensearch") | indent 14 }}
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "opensearch"))) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "opensearch_admin_password")) | indent 8 }}
+        - name: snapshots
+          {{- if $os.snapshots.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ default "opensearch-snapshots" $os.snapshots.existingClaim }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "component" "opensearch" "size" $os.persistence.size "class" $os.persistence.storageClass) | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opensearch-init
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch-init") | indent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch-init") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      restartPolicy: OnFailure
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 1000) | indent 8 }}
+      containers:
+        - name: apply
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.opensearch) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/opensearch/apply.sh"]
+          env:
+            - {name: OPENSEARCH_URL, value: "https://opensearch:9200"}
+            - {name: OPENSEARCH_USER, value: {{ .Values.config.opensearchUser | quote }}}
+            - {name: OPENSEARCH_CA, value: /pki/ca.crt}
+            - {name: OPENSEARCH_PASSWORD_FILE, value: /run/secrets/opensearch_admin_password}
+            - {name: OPENSEARCH_EXPECTED_NODES, value: {{ $replicas | quote }}}
+            - {name: OPENSEARCH_WAIT_TIMEOUT, value: {{ $os.waitTimeout | quote }}}
+            - {name: OPENSEARCH_APPLY_REPLICAS, value: {{ $os.applyReplicas | quote }}}
+          securityContext:
+{{ include "vs.containerSecurity" (dict "readOnly" false) | indent 12 }}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          volumeMounts:
+            - {name: tree, mountPath: /opensearch, readOnly: true}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+      volumes:
+        - name: tree
+          configMap:
+            name: opensearch-config
+            defaultMode: 0555
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "opensearch") | indent 14 }}
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list)) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "opensearch_admin_password")) | indent 8 }}
+{{- if $os.dashboards.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboards
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch-dashboards") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "opensearch-dashboards") | indent 4 }}
+  ports:
+    - {name: http, port: 5601, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-dashboards
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch-dashboards") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "opensearch-dashboards") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch-dashboards") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 1000) | indent 8 }}
+      containers:
+        - name: dashboards
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.dashboards) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/opensearch/dashboards/entrypoint.sh"]
+          env:
+            - {name: OPENSEARCH_PASSWORD_FILE, value: /run/secrets/opensearch_admin_password}
+          ports:
+            - {name: http, containerPort: 5601}
+          startupProbe:
+            exec:
+              command: {{ include "vs.dashboardsHealthCmd" . }}
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: {{ include "vs.dashboardsHealthCmd" . }}
+            periodSeconds: 15
+            timeoutSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+          securityContext:
+{{ include "vs.containerSecurity" (dict "readOnly" false) | indent 12 }}
+          resources:
+{{ toYaml $os.dashboards.resources | indent 12 }}
+          volumeMounts:
+            - {name: tree, mountPath: /opensearch, readOnly: true}
+            - name: tree
+              mountPath: /usr/share/opensearch-dashboards/config/opensearch_dashboards.yml
+              subPath: dashboards/opensearch_dashboards.yml
+              readOnly: true
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+      volumes:
+        - name: tree
+          configMap:
+            name: opensearch-config
+            defaultMode: 0555
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "opensearch") | indent 14 }}
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list)) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "opensearch_admin_password")) | indent 8 }}
+{{- end }}
+{{- end }}

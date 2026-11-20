@@ -1,0 +1,55 @@
+{
+  "@timestamp": "2026-01-01T00:00:00.000Z",
+  "assets": [
+    {
+      "config_sha256": "122a08a02be97a3a92b50e11a39d7de2ee779fd44fa7411271ee2580bf82d601",
+      "findings_total": 17,
+      "id": "ae45df13fd6457a3d7984fa87bd87b83e86007c68ed8c5bf8773050ee6e60e5d",
+      "name": "edge-rtr1",
+      "severity": {
+        "critical": 1,
+        "high": 7,
+        "info": 0,
+        "low": 3,
+        "medium": 6
+      },
+      "status": "fail",
+      "vendor": "ios"
+    }
+  ],
+  "doc_id": "00000000-0000-4000-8000-000000000001",
+  "record_type": "run",
+  "run": {
+    "completed_at": "2026-01-01T00:00:00.000Z",
+    "id": "00000000-0000-4000-8000-000000000001",
+    "min_severity": "info",
+    "shadow_mode": "off",
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "status": "completed"
+  },
+  "schema_version": "1.0",
+  "source": {
+    "stream": "cfgaudit.runs",
+    "system": "cfgaudit"
+  },
+  "status": "completed",
+  "summary": {
+    "assets_audited": 1,
+    "files_audited": 1,
+    "files_skipped": 0,
+    "files_total": 1,
+    "findings_total": 17,
+    "severity": {
+      "critical": 1,
+      "high": 7,
+      "info": 0,
+      "low": 3,
+      "medium": 6
+    }
+  },
+  "tool": {
+    "name": "cfgaudit",
+    "version": "0.1.0"
+  },
+  "warnings": []
+}

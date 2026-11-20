@@ -1,0 +1,36 @@
+# Traces: PROMPT section 1 Tier 3 (air-gapped deployment); CONTRACT section 4.4 (FailClosed profile airgap), section 1 (pinned digests).
+# Every image comes from the internal registry that mirrors the pinned digests (kubernetes/README.md "Air-gapped install"): newName replaces the
+# repository and keeps the tag and digest. The base already uses imagePullPolicy IfNotPresent, so nodes that preloaded an image never contact the
+# registry, and the NetworkPolicies of the base open no egress beyond the cluster (no external legs, no cloud, no model pulls).
+#   kustomize build kubernetes/kustomize/overlays/airgap | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vendetta-stack
+resources:
+  - ../../base
+images:
+  - {name: busybox, newName: registry.airgap.local:5000/busybox}
+  - {name: docker, newName: registry.airgap.local:5000/docker}
+  - {name: fluent/fluent-bit, newName: registry.airgap.local:5000/fluent/fluent-bit}
+  - {name: grafana/grafana, newName: registry.airgap.local:5000/grafana/grafana}
+  - {name: haproxy, newName: registry.airgap.local:5000/haproxy}
+  - {name: nginx, newName: registry.airgap.local:5000/nginx}
+  - {name: opensearchproject/opensearch, newName: registry.airgap.local:5000/opensearchproject/opensearch}
+  - {name: opensearchproject/opensearch-dashboards, newName: registry.airgap.local:5000/opensearchproject/opensearch-dashboards}
+  - {name: prom/alertmanager, newName: registry.airgap.local:5000/prom/alertmanager}
+  - {name: prom/prometheus, newName: registry.airgap.local:5000/prom/prometheus}
+  - {name: python, newName: registry.airgap.local:5000/python}
+  - {name: wazuh/wazuh-manager, newName: registry.airgap.local:5000/wazuh/wazuh-manager}
+  - {name: vendetta-stack/fluentd, newName: registry.airgap.local:5000/vendetta-stack/fluentd}
+  - {name: vendetta-stack/llm-gateway, newName: registry.airgap.local:5000/vendetta-stack/llm-gateway}
+  - {name: vendetta-stack/ollama, newName: registry.airgap.local:5000/vendetta-stack/ollama}
+  - {name: vendetta-stack/errow, newName: registry.airgap.local:5000/vendetta-stack/errow}
+  - {name: vendetta-stack/errow-mcp, newName: registry.airgap.local:5000/vendetta-stack/errow-mcp}
+  - {name: vendetta-stack/errow-shipper, newName: registry.airgap.local:5000/vendetta-stack/errow-shipper}
+  - {name: vendetta-stack/errow-feedback, newName: registry.airgap.local:5000/vendetta-stack/errow-feedback}
+patches:
+  - path: errow-bundle.yaml
+  - path: ollama-bundle.yaml
+  - target: {kind: ConfigMap, name: vendetta-stack-profile}
+    patch: |-
+      - {op: replace, path: /data/CS3_PROFILE, value: airgap}

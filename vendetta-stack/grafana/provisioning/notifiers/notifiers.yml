@@ -1,0 +1,4 @@
+# Traces: PROMPT §1 Tier 1 (Grafana, air-gapped)
+# Legacy notifiers are unused: alerting lives in Prometheus/Alertmanager (prometheus/alerts.yml).
+apiVersion: 1
+notifiers: []

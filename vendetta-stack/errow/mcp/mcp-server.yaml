@@ -1,0 +1,110 @@
+# errow-mcp — MCP server descriptor (what a client needs to know to call the bridge).
+#
+# Errow's own errow/tools/mcp/* is an MCP *client* (McpConnectionConfig: name/transport/url/auth/
+# allowed_tools/...); this file is the server-side counterpart plus the `errow_client_entry` block that
+# maps onto McpConnectionConfig field names. NOTE: Errow's client only supports Bearer auth, while this
+# server REQUIRES mutual TLS, so the supported caller is llm-gateway (client cert /pki/llm-gateway.crt).
+# Pointing Errow's own MCP client at it needs a TLS-terminating sidecar that presents a client cert.
+#
+# Traces: PROMPT §2.3; CONTRACT §2 (port 9103, PKI), §4.5 (policy), §8.4/§15 (mcp_events).
+name: errow-mcp
+version: 1.0.0
+transport: streamable-http
+url: https://errow-mcp:9103/mcp
+protocol_versions: ["2025-06-18", "2025-03-26", "2024-11-05"]
+session: stateless            # no Mcp-Session-Id; responses are application/json; GET/DELETE /mcp -> 405
+methods: [initialize, notifications/initialized, ping, tools/list, tools/call]
+call_meta:                    # params._meta on tools/call (role is mandatory; missing role => deny)
+  role: "triage | forensic"
+  tenant_id: string           # rate-limit scope, default "default"
+  incident_id: string
+  request_id: string          # echoed into the mcp_exec audit event
+  rationale: string           # sanitized, <=500 chars, audited
+endpoints:
+  health: GET https://errow-mcp:9103/health
+  metrics: GET https://errow-mcp:9103/metrics   # Prometheus text; scrape with a client cert (tls_config)
+auth:
+  mode: mtls
+  verify: required
+  server_cert: /pki/errow-mcp.crt
+  server_key: /pki/errow-mcp.key
+  ca: /pki/ca.crt
+  min_tls: "1.2"
+  allowed_client_names_env: MCP_ALLOWED_CLIENTS   # CN/SAN allow-list for /mcp (default llm-gateway,errow,errow-mcp)
+policy:
+  file: /app/policy.yaml                           # byte-identical copy of llm-gateway/mcp_policy.yaml
+  file_env: MCP_POLICY_FILE
+  targets_extension_env: MCP_TARGETS_FILE          # additive yaml {hostnames,cidrs,domains,repo_paths}
+  live_env: MCP_LIVE                               # execution only when exactly "true", else dry-run plan
+  order: [tool_and_role, args, forbidden_args, denied_targets_and_dns, target_allow_list, rate_limits, live_gate]
+sandbox:
+  executor: docker                                 # ephemeral container per call, never on the host
+  docker_host_env: DOCKER_HOST                     # errow-dind; the bridge refuses to run without it
+  image_env: errow_IMAGE                           # Errow sandbox image (errow/Dockerfile.sandbox: + gobuster, bbot)
+  network_env: MCP_SANDBOX_NETWORK
+  network_default: offensive
+  network_create_env: MCP_SANDBOX_NETWORK_CREATE   # default true: create the plain bridge inside the DinD daemon if absent
+  hardening:
+    user: pentester
+    read_only_rootfs: true
+    cap_drop: [ALL]
+    cap_add: {nmap: "SANDBOX_NMAP_CAPS (default NET_RAW,NET_ADMIN,NET_BIND_SERVICE)", "shell ping -c 3": [NET_RAW]}
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    tmpfs: ["/tmp (noexec)", "/run (noexec)", "tool state dirs"]
+    auto_remove: true
+    init: true
+    timeout: per-tool policy timeout_s, then kill
+    output_cap_bytes: 1048576
+  mounts:
+    trufflehog: "${MCP_REPOS_SOURCE} -> /workspace/repos (read-only), network none"
+    others: none
+  never_attached_to: [vendetta 1514-1516/55000 networks, opensearch, ollama, llm-gateway]
+tools:
+  - {name: bbot, roles: [triage], target_kind: domain, timeout_s: 300, sandbox: errow-sandbox, runs: "bbot -t <domain> -p <preset> -f passive -rf passive"}
+  - {name: nmap, roles: [triage], target_kind: host, timeout_s: 600, sandbox: errow-sandbox, runs: "nmap <scan_type> [-p ports] [-Tn] <target> -oX -"}
+  - {name: nuclei, roles: [triage], target_kind: url, timeout_s: 900, sandbox: errow-sandbox, runs: "nuclei -u <target> -tags <tags> ... -jsonl"}
+  - {name: gobuster, roles: [triage], target_kind: url, timeout_s: 600, sandbox: errow-sandbox, runs: "gobuster dir -u <url> -w <wordlist> -t <n>"}
+  - {name: subfinder, roles: [triage], target_kind: domain, timeout_s: 300, sandbox: errow-sandbox, runs: "subfinder -d <domain> -silent -json"}
+  - {name: wafw00f, roles: [triage], target_kind: url, timeout_s: 120, sandbox: errow-sandbox, runs: "wafw00f -f json -o - <url>"}
+  - {name: trufflehog, roles: [triage], target_kind: repo_path, timeout_s: 600, sandbox: errow-sandbox, runs: "trufflehog filesystem|git <path> --json --no-verification"}
+  - {name: shell, roles: [triage], target_kind: host, timeout_s: 30, sandbox: errow-sandbox, runs: "curl -sI | dig | nslookup | ping -c 3 (argv array)"}
+  - {name: agent_browser, roles: [forensic], target_kind: url, timeout_s: 120, sandbox: errow-sandbox, runs: "agent-browser open + snapshot [+ screenshot hash]"}
+  - {name: proxy, roles: [forensic], target_kind: host, timeout_s: 60, sandbox: errow-sandbox, runs: "read-only Caido GraphQL query via docker exec in a running Errow run sandbox"}
+  - {name: web_search, roles: [forensic], target_kind: none, timeout_s: 30, sandbox: errow-runtime, runs: "Exa/Perplexity HTTPS call (needs MCP_WEB_SEARCH_KEY_FILE)"}
+  - {name: threat_model, roles: [forensic], target_kind: none, timeout_s: 15, sandbox: read-only, runs: "in-process read of <run>/.state/threat_models.json"}
+  - {name: coverage, roles: [forensic], target_kind: none, timeout_s: 15, sandbox: read-only, runs: "in-process read of <run>/coverage.json"}
+audit:
+  file: /var/log/errow/mcp_events.ndjson           # event_type mcp_exec, tag errow.mcp_events (Fluent Bit tail)
+  max_bytes_env: MCP_EVENTS_MAX_BYTES
+  keep_env: MCP_EVENTS_KEEP
+env:
+  MCP_LIVE: "false"
+  MCP_PORT: "9103"
+  MCP_POLICY_FILE: /app/policy.yaml
+  MCP_TARGETS_FILE: ""
+  MCP_ALLOWED_CLIENTS: llm-gateway,errow,errow-mcp
+  MCP_SANDBOX_NETWORK: offensive
+  MCP_SANDBOX_NETWORK_CREATE: "true"
+  MCP_REPOS_SOURCE: ""
+  MCP_WEB_SEARCH_KEY_FILE: ""
+  MCP_WEB_SEARCH_PROVIDER: exa
+  MCP_EVENTS_MAX_BYTES: "52428800"
+  MCP_EVENTS_KEEP: "5"
+  DOCKER_HOST: tcp://errow-dind:2376
+  errow_IMAGE: ""
+errow_client_entry:            # shape of errow.tools.mcp.config.McpConnectionConfig (JSON equivalent of ~/.errow/mcp-servers.json)
+  name: errow_bridge
+  transport: http
+  url: https://errow-mcp:9103/mcp
+  allowed_tools: [bbot, nmap, nuclei, gobuster, subfinder, wafw00f, trufflehog, shell, agent_browser, proxy, web_search, threat_model, coverage]
+  active_tools: [nmap, nuclei, subfinder]
+  notes: >-
+    Policy-gated offensive tooling bridge. Dry-run plans unless the operator enabled MCP_LIVE. Requires
+    mutual TLS and a _meta.role (triage|forensic) on every call, so only the LLM gateway can use it.
+  http_timeout_seconds: 930
+  sse_read_timeout_seconds: 930
+  session_timeout_seconds: 930
+  max_concurrent_calls: 4

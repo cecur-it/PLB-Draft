@@ -1,0 +1,12 @@
+{
+  "@timestamp": "2026-11-12T09:50:00.000Z",
+  "stream": "findings",
+  "run": "scan-target-vendetta-lab-8080_3f9a",
+  "source": "errow",
+  "doc_id": "d0a7c3e91b5f4826a0c8e2b4d6f81a3c5e7092b4d6f8a1c3e5079b2d4f6a8c01",
+  "ruleId": "CWE-22",
+  "level": "error",
+  "message": "a bare string instead of the SARIF message object",
+  "locations": "not-a-list",
+  "properties": "not-an-object"
+}

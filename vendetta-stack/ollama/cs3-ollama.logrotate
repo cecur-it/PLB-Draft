@@ -1,0 +1,15 @@
+# /etc/logrotate.d/cs3-ollama — installed by ollama/install-ollama.sh (idempotent, diffed before write).
+# Traces: PROMPT §1 Tier 4 (operational hygiene). Rotates the file logs of the Ollama worker:
+# the launchd StandardOutPath/StandardErrorPath files and pull-models.sh / install logs.
+# Under systemd the service logs to journald (shipped by Fluent Bit as stream cs3.ai.ollama), not here.
+/var/lib/cs3-ollama/*.log {
+    su cs3-ollama cs3-ollama
+    weekly
+    rotate 8
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

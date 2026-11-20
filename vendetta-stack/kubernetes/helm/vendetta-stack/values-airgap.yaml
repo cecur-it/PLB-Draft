@@ -1,0 +1,38 @@
+# Traces: PROMPT section 1 Tier 3 (air-gapped deployment); CONTRACT section 4.4 (FailClosed profile airgap), section 8 (offline model bundle).
+# Every image is pulled from an internal registry that mirrors the pinned digests (see kubernetes/README.md "Air-gapped install"),
+# no NetworkPolicy opens egress beyond the cluster, external legs are refused by the chart, and Ollama loads model GGUF files
+# from a pre-populated PVC instead of pulling them, and errow-dind loads the Kali sandbox from errow-sandbox.tar on the errow bundle PVC.
+# Scan targets outside the cluster stay unreachable unless their CIDR is listed under errow.dind.targetEgress (applied in every profile).
+#   helm upgrade --install vendetta-stack ./vendetta-stack -f values-airgap.yaml -n vendetta-stack --create-namespace
+
+global:
+  profile: airgap
+  imageRegistry: registry.airgap.local:5000
+  imagePullPolicy: IfNotPresent
+
+config:
+  llmMode: local
+  errowCloudEnabled: false
+  errowTelemetry: false
+
+fluentBit:
+  legs:
+    console:
+      enabled: false
+    esoc:
+      enabled: false
+    siem:
+      enabled: false
+
+ollama:
+  preloadStrict: true
+  bundle:
+    existingClaim: ollama-model-bundle
+
+errow:
+  bundle:
+    existingClaim: errow-bundle
+
+networkPolicy:
+  enabled: true
+  externalEgress: []

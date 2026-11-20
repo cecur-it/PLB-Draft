@@ -1,0 +1,120 @@
+{
+  "index_patterns": [
+    "errow-coverage-*",
+    "errow-llm-logs-*",
+    "errow-mcp-*",
+    "errow-runtime-*",
+    "errow-proxy-*",
+    "errow-tooling-*",
+    "errow-tui-*",
+    "errow-cloud-*",
+    "errow-telemetry-*",
+    "errow-agent-state-*",
+    "errow-viewer-*",
+    "errow-report-artifacts-*",
+    "errow-sarif-*"
+  ],
+  "priority": 100,
+  "version": 1,
+  "_meta": {
+    "description": "Generic mapping for the remaining Errow stream families (CONTRACT s3/s15). Priority 100 < 200 so the specific templates (errow-findings/-sarif, -runs, -transcripts, -threat-models) always win: composable templates are not merged, the highest priority match applies alone. errow-sarif-* is listed here only as a safety net; its specific mapping is errow-findings-template.json. Includes the LlmRequestEvent fields (errow-llm-logs-*) and the cs3.ai.tool_call fields that the gateway also routes into errow-mcp-*.",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "10s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 2000,
+      "index.mapping.ignore_malformed": true
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "numeric_detection": false,
+      "dynamic_templates": [
+        {
+          "free_text_strings": {
+            "match_mapping_type": "string",
+            "match_pattern": "regex",
+            "match": "^(message|msg|line|log|raw|content|text|.*_(message|description|summary|output|log))$",
+            "mapping": { "type": "text", "norms": false }
+          }
+        },
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "stream": { "type": "keyword" },
+        "run": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "doc_id": { "type": "keyword" },
+        "event_type": { "type": "keyword" },
+        "level": { "type": "keyword" },
+        "message": { "type": "text", "norms": false },
+        "call_id": { "type": "keyword" },
+        "route": { "type": "keyword" },
+        "provider": { "type": "keyword" },
+        "model": { "type": "keyword" },
+        "api_host": { "type": "keyword" },
+        "streaming": { "type": "boolean" },
+        "outcome": { "type": "keyword" },
+        "status_code": { "type": "integer" },
+        "provider_request_id": { "type": "keyword" },
+        "response_id": { "type": "keyword" },
+        "error_type": { "type": "keyword" },
+        "error_message": { "type": "text", "norms": false },
+        "started_at": { "type": "date" },
+        "finished_at": { "type": "date" },
+        "duration_ms": { "type": "double" },
+        "input_tokens": { "type": "long" },
+        "output_tokens": { "type": "long" },
+        "cached_input_tokens": { "type": "long" },
+        "total_tokens": { "type": "long" },
+        "cost_usd": { "type": "double" },
+        "agent_id": { "type": "keyword" },
+        "agent_name": { "type": "keyword" },
+        "retry_attempt": { "type": "integer" },
+        "request_bytes": { "type": "long" },
+        "response_bytes": { "type": "long" },
+        "time_to_first_token_ms": { "type": "double" },
+        "finish_reason": { "type": "keyword" },
+        "response_headers": { "type": "flat_object" },
+        "details": { "type": "object", "enabled": false },
+        "tenant_id": { "type": "keyword" },
+        "incident_id": { "type": "keyword" },
+        "request_id": { "type": "keyword" },
+        "role": { "type": "keyword" },
+        "tool": { "type": "keyword" },
+        "args": { "type": "flat_object" },
+        "target": { "type": "keyword", "ignore_above": 1024 },
+        "decision": { "type": "keyword" },
+        "violations": { "type": "keyword" },
+        "rationale": { "type": "text", "norms": false },
+        "gpu_seconds": { "type": "double" },
+        "live": { "type": "boolean" },
+        "result_summary": { "type": "text", "norms": false },
+        "chain_id": { "type": "keyword" },
+        "seq": { "type": "long" },
+        "prev_hash": { "type": "keyword" },
+        "hash": { "type": "keyword" },
+        "artifact": { "type": "keyword", "ignore_above": 1024 },
+        "path": { "type": "keyword", "ignore_above": 1024 },
+        "sha256": { "type": "keyword" },
+        "bytes": { "type": "long" },
+        "kind": { "type": "keyword" },
+        "ingest_error": {
+          "type": "text",
+          "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } }
+        }
+      }
+    }
+  }
+}

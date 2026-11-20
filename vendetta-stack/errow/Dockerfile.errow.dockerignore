@@ -1,0 +1,12 @@
+# Ignore file for Dockerfile.errow (BuildKit picks up <Dockerfile>.dockerignore next to the Dockerfile).
+# The build context is the upstream Errow tree; ship only what the image build reads.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE.md
+!scripts/tui_sidecar_hook.py
+!errow
+**/__pycache__
+**/*.pyc
+errow/interface/viewer/frontend/node_modules

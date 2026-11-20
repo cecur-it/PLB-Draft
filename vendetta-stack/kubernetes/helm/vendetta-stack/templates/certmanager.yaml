@@ -1,0 +1,92 @@
+# Traces: CONTRACT section 2 (PKI file names tls.crt/tls.key/ca.crt, per-service DNS SANs, mTLS), PROMPT section 1 Tier 3 (cert-manager).
+# Leaf secrets are named <service>-tls; vs.pkiVolume projects them to the <service>.crt/<service>.key file names the shipped configs expect.
+{{- if .Values.certManager.enabled }}
+{{- $cm := .Values.certManager }}
+{{- $ns := .Release.Namespace }}
+{{- $dur := $cm.duration }}
+{{- $ren := $cm.renewBefore }}
+{{- $headlessOs := printf "*.opensearch-headless.%s.svc.cluster.local" $ns }}
+{{- $services := list
+  (dict "svc" "opensearch" "extra" (list "opensearch-headless" (printf "opensearch-headless.%s.svc.cluster.local" $ns) $headlessOs "*.opensearch-headless"))
+  (dict "svc" "fluentd-1" "extra" (list (printf "*.fluentd-1.%s.svc.cluster.local" $ns)))
+  (dict "svc" "fluentd-2" "extra" (list (printf "*.fluentd-2.%s.svc.cluster.local" $ns)))
+  (dict "svc" "fluent-bit" "extra" (list))
+  (dict "svc" "llm-gateway" "extra" (list "llm-gateway-headless" (printf "*.llm-gateway-headless.%s.svc.cluster.local" $ns)))
+  (dict "svc" "ollama-lb" "extra" (list))
+  (dict "svc" "ollama-1" "extra" (list "ollama-workers" (printf "*.ollama-workers.%s.svc.cluster.local" $ns)))
+  (dict "svc" "errow-mcp" "extra" (list))
+  (dict "svc" "errow" "extra" (list))
+  (dict "svc" "errow-feedback" "extra" (list))
+  (dict "svc" "prometheus" "extra" (list))
+  (dict "svc" "errow-dind" "extra" (list))
+  (dict "svc" "errow-dind-client" "extra" (list)) }}
+{{- if $cm.issuer.create }}
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vendetta-selfsigned
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "pki") | indent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vendetta-ca-root
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "pki") | indent 4 }}
+spec:
+  isCA: true
+  commonName: {{ $cm.issuer.caCommonName | quote }}
+  secretName: vendetta-ca-root
+  duration: 87600h
+  renewBefore: 8760h
+  privateKey:
+    algorithm: ECDSA
+    size: 384
+    encoding: PKCS8
+    rotationPolicy: Never
+  issuerRef:
+    name: vendetta-selfsigned
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: {{ $cm.issuer.kind }}
+metadata:
+  name: {{ $cm.issuer.name }}
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "pki") | indent 4 }}
+spec:
+  ca:
+    secretName: vendetta-ca-root
+{{- end }}
+{{- range $services }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .svc }}
+  labels:
+{{ include "vs.labels" (dict "root" $ "component" "pki") | indent 4 }}
+spec:
+  secretName: {{ .svc }}-tls
+  commonName: {{ .svc }}
+  duration: {{ $dur }}
+  renewBefore: {{ $ren }}
+  usages: [server auth, client auth, digital signature, key encipherment]
+  privateKey:
+    algorithm: ECDSA
+    size: 384
+    encoding: PKCS8
+    rotationPolicy: Always
+  dnsNames:
+{{ include "vs.certDns" (dict "root" $ "svc" .svc "extra" .extra) | indent 4 }}
+  ipAddresses: ["127.0.0.1"]
+  issuerRef:
+    name: {{ $cm.issuer.name }}
+    kind: {{ $cm.issuer.kind }}
+    group: cert-manager.io
+{{- end }}
+{{- end }}

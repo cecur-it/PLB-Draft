@@ -1,0 +1,180 @@
+{
+  "run_id": "host-docker-internal-3000_956b",
+  "run_name": "host-docker-internal-3000_956b",
+  "start_time": "2026-11-19T10:44:11.252144+00:00",
+  "end_time": "2026-11-19T10:46:14.174032+00:00",
+  "status": "completed",
+  "auth_mode": "api_key",
+  "targets_info": [
+    {
+      "type": "web_application",
+      "details": {
+        "target_url": "http://host.docker.internal:3000"
+      },
+      "original": "http://host.docker.internal:3000"
+    }
+  ],
+  "llm_usage": {
+    "requests": 4,
+    "input_tokens": 227739,
+    "input_tokens_details": [
+      {
+        "cache_write_tokens": 0,
+        "cached_tokens": 226349
+      }
+    ],
+    "output_tokens": 291,
+    "output_tokens_details": [
+      {
+        "reasoning_tokens": 0
+      }
+    ],
+    "total_tokens": 228030,
+    "request_usage_entries": [
+      {
+        "input_tokens": 56188,
+        "output_tokens": 43,
+        "total_tokens": 56231,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 56184
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      {
+        "input_tokens": 56460,
+        "output_tokens": 46,
+        "total_tokens": 56506,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 56184
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      {
+        "input_tokens": 57408,
+        "output_tokens": 65,
+        "total_tokens": 57473,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 56507
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      {
+        "input_tokens": 57683,
+        "output_tokens": 137,
+        "total_tokens": 57820,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 57474
+        },
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    ],
+    "cost": 0.0,
+    "providers": {},
+    "agents": [
+      {
+        "requests": 4,
+        "input_tokens": 227739,
+        "input_tokens_details": [
+          {
+            "cache_write_tokens": 0,
+            "cached_tokens": 226349
+          }
+        ],
+        "output_tokens": 291,
+        "output_tokens_details": [
+          {
+            "reasoning_tokens": 0
+          }
+        ],
+        "total_tokens": 228030,
+        "request_usage_entries": [
+          {
+            "input_tokens": 56188,
+            "output_tokens": 43,
+            "total_tokens": 56231,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 56184
+            },
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          {
+            "input_tokens": 56460,
+            "output_tokens": 46,
+            "total_tokens": 56506,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 56184
+            },
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          {
+            "input_tokens": 57408,
+            "output_tokens": 65,
+            "total_tokens": 57473,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 56507
+            },
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          {
+            "input_tokens": 57683,
+            "output_tokens": 137,
+            "total_tokens": 57820,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cached_tokens": 57474
+            },
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          }
+        ],
+        "agent_id": "b3a1c3fd",
+        "agent_name": "Root Agent",
+        "model": "openai/nemotron-3-nano:30b",
+        "cost": 0.0
+      }
+    ]
+  },
+  "scan_mode": "quick",
+  "instruction": "RUNTIME RULE: non-interactive run — every turn must contain a tool call.\n\nTarget http://host.docker.internal:3000 (OWASP Juice Shop). Rollback rehearsal:\nkeep it short.\n\n1. curl -sD - \"http://host.docker.internal:3000/robots.txt\"\n2. curl -sD - \"http://host.docker.internal:3000/rest/products/search?q=apple\"\n3. Finish now: call finish_scan with a two-sentence executive summary of the\n   response headers you saw. Do not file reports.",
+  "user_instruction": "RUNTIME RULE: non-interactive run — every turn must contain a tool call.\n\nTarget http://host.docker.internal:3000 (OWASP Juice Shop). Rollback rehearsal:\nkeep it short.\n\n1. curl -sD - \"http://host.docker.internal:3000/robots.txt\"\n2. curl -sD - \"http://host.docker.internal:3000/rest/products/search?q=apple\"\n3. Finish now: call finish_scan with a two-sentence executive summary of the\n   response headers you saw. Do not file reports.",
+  "non_interactive": true,
+  "local_sources": [],
+  "workspace_files": [],
+  "workspace_mount": null,
+  "diff_scope": {
+    "active": false,
+    "mode": "auto"
+  },
+  "scope_mode": "auto",
+  "diff_base": null,
+  "scan_results": {
+    "scan_completed": true,
+    "executive_summary": "The target responded with a 200 OK for both /robots.txt and /rest/products/search?q=apple, indicating the application is reachable and serving content. No further testing performed.",
+    "methodology": "Conducted a brief connectivity test against the OWASP Juice Shop instance.",
+    "technical_analysis": "The application is reachable and serving content on the default port.",
+    "recommendations": "No further testing was performed; consider expanding the assessment scope.",
+    "success": true
+  }
+}

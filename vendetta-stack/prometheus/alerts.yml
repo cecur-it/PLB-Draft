@@ -1,0 +1,337 @@
+# Traces: PROMPT §5 Observability (alerting on pipeline health, LLM SLO, audit integrity), CONTRACT §4.4 (gateway metrics), §5 (outputs)
+# Every metric below exists in the pinned components:
+#   Fluent Bit 3.2.10  /api/v2/metrics/prometheus  fluentbit_*           (labels: name = plugin instance alias)
+#   Fluentd 1.17       :24231/metrics              fluentd_output_status_* (labels: node, plugin_id), cs3_pipeline_*
+#   llm-gateway        :9101/metrics               llm_gateway_*, ollama_gpu_memory_util
+# Severity: critical = page, data loss or integrity risk now; warning = act within the business day; info = awareness.
+# Each rule's `runbook` annotation is an anchor in docs/runbooks.md; the anchor list is prometheus/runbook-anchors.txt and is
+# verified by prometheus/tests/validate.sh. Thresholds assume the defaults in the component RUNTIME.md files (gateway queue 512,
+# spool 100000 events, Fluentd buffers 2GB, Fluent Bit storage.max_chunks_up) and are meant to be tuned with the same variables.
+
+groups:
+  - name: fluent-bit-edge
+    rules:
+      - alert: FluentBitDown
+        expr: up{job="fluent-bit"} == 0
+        for: 2m
+        labels: {severity: critical, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit {{ $labels.instance }} is not scraped"
+          description: "No metrics from the edge collector for 2 minutes. Logs stay on disk (storage.type filesystem) but nothing is shipped."
+          runbook: "docs/runbooks.md#fluent-bit-down"
+
+      - alert: FluentBitOutputRetrying
+        expr: sum by (instance, name) (rate(fluentbit_output_retries_total[5m])) > 0.05
+        for: 10m
+        labels: {severity: warning, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit output {{ $labels.name }} keeps retrying"
+          description: "{{ $labels.name }} on {{ $labels.instance }} retried {{ $value | humanize }} chunks/s over 10 minutes; the destination is slow, down or rejecting data."
+          runbook: "docs/runbooks.md#fluent-bit-output-retrying"
+
+      - alert: FluentBitRetriesExhausted
+        expr: sum by (instance, name) (increase(fluentbit_output_retries_failed_total[10m])) > 0
+        labels: {severity: critical, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit output {{ $labels.name }} gave up on chunks"
+          description: "{{ $value | humanize }} chunks exhausted Retry_Limit on {{ $labels.name }} ({{ $labels.instance }}) in 10 minutes and were discarded."
+          runbook: "docs/runbooks.md#fluent-bit-data-loss"
+
+      - alert: FluentBitRecordsDropped
+        expr: sum by (instance, name) (increase(fluentbit_output_dropped_records_total[10m])) > 0
+        labels: {severity: critical, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit dropped records on {{ $labels.name }}"
+          description: "{{ $value | humanize }} records were dropped by {{ $labels.name }} on {{ $labels.instance }} in 10 minutes."
+          runbook: "docs/runbooks.md#fluent-bit-data-loss"
+
+      - alert: FluentBitInputPaused
+        expr: max by (instance, name) (fluentbit_input_storage_overlimit) == 1
+        for: 5m
+        labels: {severity: warning, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit input {{ $labels.name }} is paused (storage over limit)"
+          description: "storage.pause_on_chunks_overlimit has paused {{ $labels.name }} on {{ $labels.instance }} for 5 minutes; sources buffer on their own disks until downstream drains."
+          runbook: "docs/runbooks.md#fluent-bit-backpressure"
+
+      - alert: FluentBitOutputCapacityLow
+        expr: min by (instance, name) (fluentbit_output_chunk_available_capacity_percent) < 20
+        for: 10m
+        labels: {severity: warning, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit output {{ $labels.name }} has {{ $value | humanize }}% chunk capacity left"
+          description: "The output's chunk queue on {{ $labels.instance }} is nearly full; paused inputs and delays follow."
+          runbook: "docs/runbooks.md#fluent-bit-backpressure"
+
+      - alert: FluentBitDiskBacklogGrowing
+        expr: max by (instance) (fluentbit_storage_fs_chunks_down) > 100 and max by (instance) (deriv(fluentbit_storage_fs_chunks_down[15m])) > 0
+        for: 15m
+        labels: {severity: warning, component: fluent-bit}
+        annotations:
+          summary: "Fluent Bit filesystem backlog is growing on {{ $labels.instance }}"
+          description: "{{ $value | humanize }} chunks are queued on disk and still increasing; check the Fluentd upstream and /var/log/fluent-bit free space."
+          runbook: "docs/runbooks.md#fluent-bit-backpressure"
+
+  - name: fluentd-aggregator
+    rules:
+      - alert: FluentdNodeDown
+        expr: up{job="fluentd"} == 0
+        for: 2m
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd {{ $labels.node }} is not scraped"
+          description: "One aggregator is gone; the other still accepts the edge traffic (active-active) but there is no redundancy."
+          runbook: "docs/runbooks.md#fluentd-node-down"
+
+      - alert: FluentdAllNodesDown
+        expr: absent(up{job="fluentd"} == 1)
+        for: 2m
+        labels: {severity: critical, component: fluentd}
+        annotations:
+          summary: "No Fluentd aggregator is reachable"
+          description: "Both fluentd-1 and fluentd-2 are down or not scraped; Fluent Bit buffers to disk but nothing reaches OpenSearch."
+          runbook: "docs/runbooks.md#fluentd-node-down"
+
+      - alert: FluentdBufferBacklog
+        expr: max by (node, plugin_id) (fluentd_output_status_buffer_queue_length{plugin_id!~"dead_letter.*"}) > 50
+        for: 10m
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd output {{ $labels.plugin_id }} on {{ $labels.node }} has {{ $value | humanize }} queued chunks"
+          description: "The destination drains slower than events arrive for 10 minutes."
+          runbook: "docs/runbooks.md#fluentd-buffer-backlog"
+
+      - alert: FluentdBufferNearlyFull
+        expr: min by (node, plugin_id) (fluentd_output_status_buffer_available_space_ratio{plugin_id!~"dead_letter.*"}) < 20
+        for: 5m
+        labels: {severity: critical, component: fluentd}
+        annotations:
+          summary: "Fluentd buffer {{ $labels.plugin_id }} on {{ $labels.node }} has {{ $value | humanize }}% space left"
+          description: "overflow_action block backpressures Fluent Bit once the file buffer is full (best-effort legs drop the oldest chunk instead)."
+          runbook: "docs/runbooks.md#fluentd-buffer-nearly-full"
+
+      - alert: FluentdOutputRetrying
+        expr: max by (node, plugin_id) (fluentd_output_status_retry_count) > 0
+        for: 10m
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd output {{ $labels.plugin_id }} on {{ $labels.node }} is in retry for 10 minutes"
+          description: "retry_count={{ $value }}; the destination is failing flushes (OpenSearch red/read-only, gateway down, TLS or token mismatch)."
+          runbook: "docs/runbooks.md#fluentd-output-retrying"
+
+      - alert: FluentdOutputErrors
+        expr: sum by (node, plugin_id) (increase(fluentd_output_status_num_errors[10m])) > 5
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd output {{ $labels.plugin_id }} on {{ $labels.node }} raised {{ $value | humanize }} errors in 10 minutes"
+          description: "Flush errors (connection, 4xx/5xx, bulk item rejections)."
+          runbook: "docs/runbooks.md#fluentd-output-errors"
+
+      - alert: FluentdEmitStall
+        expr: |
+          sum by (node) (rate(fluentd_output_status_emit_records{plugin_id=~"opensearch.*"}[10m])) == 0
+          and on() sum(rate(fluentbit_output_proc_records_total{name="fluentd_forward"}[10m])) > 0
+        for: 10m
+        labels: {severity: critical, component: fluentd}
+        annotations:
+          summary: "Fluentd {{ $labels.node }} emits nothing to OpenSearch while Fluent Bit keeps forwarding"
+          description: "Fluent Bit's forward output processes records but the OpenSearch outputs of {{ $labels.node }} received none for 10 minutes: routing, TLS client-cert or label wiring problem."
+          runbook: "docs/runbooks.md#fluentd-emit-stall"
+
+      - alert: PipelineDeadLetterEvents
+        expr: sum by (node) (increase(cs3_pipeline_error_events_total[10m])) > 0
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd {{ $labels.node }} parked {{ $value | humanize }} events in dead-letter/error"
+          description: "Plugin errors (mapping conflicts, missing audit hash, buffer overflow) diverted events to /var/log/fluentd/dead-letter/error*."
+          runbook: "docs/runbooks.md#pipeline-dead-letter"
+
+      - alert: PipelineUnroutedEvents
+        expr: sum by (node) (increase(cs3_pipeline_unrouted_events_total[10m])) > 0
+        labels: {severity: warning, component: fluentd}
+        annotations:
+          summary: "Fluentd {{ $labels.node }} received events with an unknown tag"
+          description: "{{ $value | humanize }} events matched no route and were parked in dead-letter/unrouted*; a producer uses a tag this stack does not know."
+          runbook: "docs/runbooks.md#pipeline-dead-letter"
+
+  - name: llm-gateway-slo
+    rules:
+      - alert: LlmGatewayDown
+        expr: up{job="llm-gateway"} == 0
+        for: 2m
+        labels: {severity: critical, component: llm-gateway}
+        annotations:
+          summary: "LLM gateway {{ $labels.instance }} is not scraped"
+          description: "AI triage, forensic analysis and MCP policy decisions are unavailable; Vendetta keeps alerting without AI enrichment."
+          runbook: "docs/runbooks.md#llm-gateway-down"
+
+      - alert: LlmGatewayFailover
+        expr: sum by (from, to, reason) (rate(llm_gateway_failover_total[10m])) * 60 > 1
+        for: 5m
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "LLM tier failover {{ $labels.from }} -> {{ $labels.to }} ({{ $labels.reason }}) at {{ $value | humanize }}/min"
+          description: "The triage -> forensic -> heuristics cascade is engaging repeatedly: Ollama timeouts, GPU maintenance or a backend outage."
+          runbook: "docs/runbooks.md#llm-failover"
+
+      - alert: LlmHeuristicFallbackRatioHigh
+        expr: |
+          sum(rate(llm_gateway_requests_total{fallback="true"}[15m]))
+            / sum(rate(llm_gateway_requests_total[15m])) > 0.5
+        for: 15m
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of analyses are served by fallback engines"
+          description: "More than half of the answered records come from the forensic/heuristic fallback instead of the primary model."
+          runbook: "docs/runbooks.md#llm-failover"
+
+      - alert: LlmTriageLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "p95 triage latency {{ $value | humanizeDuration }} (SLO 30s)"
+          description: "Backend latency per analysed record (queue wait excluded) is above the 30 s SLO for 10 minutes."
+          runbook: "docs/runbooks.md#llm-triage-latency"
+
+      - alert: LlmTriageLatencyP95Critical
+        expr: histogram_quantile(0.95, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[10m]))) > 60
+        for: 10m
+        labels: {severity: critical, component: llm-gateway}
+        annotations:
+          summary: "p95 triage latency {{ $value | humanizeDuration }} (2x the SLO)"
+          description: "Triage is too slow to keep up; expect queue growth and heuristic fallbacks."
+          runbook: "docs/runbooks.md#llm-triage-latency"
+
+      - alert: LlmQueueSaturated
+        expr: max(llm_gateway_queue_depth) > 256
+        for: 10m
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "LLM gateway queue holds {{ $value | humanize }} records (limit 512 by default)"
+          description: "Inference slots are saturated; the gateway starts rejecting at GATEWAY_MAX_QUEUE."
+          runbook: "docs/runbooks.md#llm-queue-saturated"
+
+      - alert: LlmPromptInjectionBurst
+        expr: sum(increase(llm_gateway_prompt_injection_blocked_total[5m])) > 10
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "{{ $value | humanize }} prompt-injection attempts blocked in 5 minutes"
+          description: "Log content is being crafted against the AI tier (the records were triaged defensively); review the source hosts."
+          runbook: "docs/runbooks.md#llm-prompt-injection-burst"
+
+      - alert: LlmSchemaViolations
+        expr: sum(increase(llm_gateway_output_schema_violations_total[15m])) > 5
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "{{ $value | humanize }} model outputs failed JSON-schema validation in 15 minutes"
+          description: "The model answers outside AIIncidentAnalysis; a model or prompt regression, or an adversarial input."
+          runbook: "docs/runbooks.md#llm-schema-violations"
+
+      - alert: LlmAuditChainBroken
+        expr: min(llm_gateway_audit_chain_ok) == 0
+        for: 1m
+        labels: {severity: critical, component: llm-gateway}
+        annotations:
+          summary: "LLM audit hash chain is broken or not fully spooled"
+          description: "llm_gateway_audit_chain_ok == 0: tampering, a corrupt spool or a gap in the chain. Treat as an AU-9 integrity incident."
+          runbook: "docs/runbooks.md#llm-audit-chain-broken"
+
+      - alert: LlmSpoolBacklogGrowing
+        expr: max(llm_gateway_spool_depth) > 1000 and max(deriv(llm_gateway_spool_depth[15m])) > 0
+        for: 15m
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "Gateway spool holds {{ $value | humanize }} undelivered audit events and keeps growing"
+          description: "Fluent Bit at :9880 is unreachable or rejecting; events are safe on disk but not yet in OpenSearch."
+          runbook: "docs/runbooks.md#llm-audit-spool-backlog"
+
+      - alert: LlmSpoolNearlyFull
+        expr: max(llm_gateway_spool_depth) > 50000
+        for: 5m
+        labels: {severity: critical, component: llm-gateway}
+        annotations:
+          summary: "Gateway spool holds {{ $value | humanize }} events (default capacity 100000)"
+          description: "Once GATEWAY_SPOOL_MAX_EVENTS is reached unchained events are dropped and the audit trail gets gaps."
+          runbook: "docs/runbooks.md#llm-audit-spool-backlog"
+
+      - alert: LlmAuditEventsLost
+        expr: sum by (tag) (increase(llm_gateway_audit_dropped_total[10m])) > 0
+        labels: {severity: critical, component: llm-gateway}
+        annotations:
+          summary: "Gateway dropped {{ $value | humanize }} {{ $labels.tag }} events because the spool is full"
+          description: "Audit/enrichment events were lost; restore delivery to Fluent Bit and reconcile from the gateway logs."
+          runbook: "docs/runbooks.md#llm-audit-data-loss"
+
+      - alert: LlmAuditEventsQuarantined
+        expr: sum by (tag) (increase(llm_gateway_audit_quarantined_total[30m])) > 0
+        labels: {severity: warning, component: llm-gateway}
+        annotations:
+          summary: "Gateway quarantined {{ $value | humanize }} {{ $labels.tag }} events after repeated 4xx from Fluent Bit"
+          description: "Events were moved aside instead of delivered; inspect the quarantine directory and the Fluent Bit input."
+          runbook: "docs/runbooks.md#llm-audit-data-loss"
+
+      - alert: OllamaGpuMemoryHigh
+        expr: max by (instance) (ollama_gpu_memory_util) > 0.95
+        for: 10m
+        labels: {severity: warning, component: ollama}
+        annotations:
+          summary: "Ollama GPU memory at {{ $value | humanizePercentage }}"
+          description: "Model eviction and OOM-driven failovers are likely; reduce concurrency or move the forensic model to another worker."
+          runbook: "docs/runbooks.md#ollama-gpu-memory"
+
+      - alert: LlmNoInferenceTraffic
+        expr: (sum(increase(llm_gateway_requests_total[1h])) or vector(0)) == 0 and on() (max(up{job="llm-gateway"}) == 1)
+        for: 30m
+        labels: {severity: info, component: llm-gateway}
+        annotations:
+          summary: "The LLM gateway answered no record in the last hour"
+          description: "The gateway is up but Fluentd's /triage leg delivers nothing: no alerts, a gated severity regex, or a broken http-llm-triage output."
+          runbook: "docs/runbooks.md#llm-no-inference-traffic"
+
+  - name: errow-mcp
+    rules:
+      - alert: ErrowMcpDown
+        expr: up{job="errow-mcp"} == 0
+        for: 10m
+        labels: {severity: warning, component: errow-mcp}
+        annotations:
+          summary: "Errow MCP bridge {{ $labels.instance }} is not scraped"
+          description: "Not an error when the errow profile is off; otherwise tool calls from the AI tier cannot be executed or audited."
+          runbook: "docs/runbooks.md#errow-mcp-down"
+
+      - alert: McpDeniedCallBurst
+        expr: sum by (tool) (increase(llm_gateway_mcp_tool_calls_total{decision=~"denied|rate_limited"}[5m])) > 10
+        labels: {severity: warning, component: errow-mcp}
+        annotations:
+          summary: "{{ $value | humanize }} MCP calls to {{ $labels.tool }} were denied in 5 minutes"
+          description: "The policy (scope, allowlist, rate limit, approvals) refused repeated tool calls: a prompt-injection attempt or a misconfigured agent."
+          runbook: "docs/runbooks.md#errow-mcp-denied-burst"
+
+  - name: observability-self
+    rules:
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 5m
+        labels: {severity: critical, component: alertmanager}
+        annotations:
+          summary: "Alertmanager is not scraped"
+          description: "Alerts are evaluated but cannot be routed or silenced."
+          runbook: "docs/runbooks.md#observability-self-monitoring"
+
+      - alert: PrometheusAlertmanagerNotConnected
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 5m
+        labels: {severity: critical, component: prometheus}
+        annotations:
+          summary: "Prometheus sees no Alertmanager"
+          description: "Firing alerts are not delivered anywhere."
+          runbook: "docs/runbooks.md#observability-self-monitoring"
+
+      - alert: PrometheusRuleEvaluationFailing
+        expr: increase(prometheus_rule_evaluation_failures_total[10m]) > 0
+        labels: {severity: warning, component: prometheus}
+        annotations:
+          summary: "Prometheus failed to evaluate {{ $value | humanize }} rules in 10 minutes"
+          description: "A rule references a missing series or a malformed expression; check the Prometheus log."
+          runbook: "docs/runbooks.md#observability-self-monitoring"

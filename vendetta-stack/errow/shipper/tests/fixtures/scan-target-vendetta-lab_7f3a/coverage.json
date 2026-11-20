@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-12 10:05:00 UTC",
+  "run_id": "scan-target-vendetta-lab_7f3a",
+  "run_name": "scan-target-vendetta-lab_7f3a",
+  "scope": {
+    "targets": [
+      "http://scan-target.vendetta.lab"
+    ],
+    "scan_mode": "standard",
+    "scope_mode": "auto",
+    "diff_scope": {},
+    "instruction": ""
+  },
+  "summary": {
+    "surfaces_reviewed": 4,
+    "outcomes": {
+      "no_issue_found": 1,
+      "ruled_out": 0,
+      "not_applicable": 1,
+      "needs_follow_up": 1,
+      "finding_filed": 1
+    },
+    "findings_filed": 2,
+    "gaps": 1
+  },
+  "machine_observed": {
+    "agents": [
+      {
+        "agent_id": "agent-root-1",
+        "agent_name": "errowAgent",
+        "status": "completed",
+        "skills": [
+          "sql_injection"
+        ],
+        "task": "Assess scan-target.vendetta.lab",
+        "is_root": true
+      },
+      {
+        "agent_id": "agent-sub-2",
+        "agent_name": "AuthzAgent",
+        "status": "completed",
+        "skills": [
+          "idor"
+        ],
+        "task": "Test object level authorization",
+        "is_root": false
+      }
+    ],
+    "skills_exercised": [
+      "sql_injection",
+      "idor"
+    ],
+    "findings_filed": 2,
+    "source": "agents graph"
+  },
+  "completeness": {
+    "complete": true,
+    "caveats": []
+  },
+  "entries": [
+    {
+      "surface": "GET /api/search",
+      "risk_area": "Injection",
+      "outcome": "no_issue_found",
+      "outcome_label": "No issue found",
+      "evidence": "Fuzzed 12 inputs; no deviation on /api/health.",
+      "recorded_by": "agent-root-1",
+      "recorded_at": "2026-11-12 09:20:00 UTC",
+      "updated_at": "2026-11-12 09:20:00 UTC",
+      "previous_outcomes": [],
+      "source": "agent_reported"
+    },
+    {
+      "surface": "WebSocket /ws",
+      "risk_area": "Transport",
+      "outcome": "not_applicable",
+      "outcome_label": "Not applicable",
+      "evidence": "No websocket endpoint exposed.",
+      "recorded_by": "agent-sub-2",
+      "recorded_at": "2026-11-12 09:50:00 UTC",
+      "updated_at": "2026-11-12 09:50:00 UTC",
+      "previous_outcomes": [],
+      "source": "agent_reported"
+    },
+    {
+      "surface": "POST /api/upload",
+      "risk_area": "File handling",
+      "outcome": "needs_follow_up",
+      "outcome_label": "Needs follow-up",
+      "evidence": "Upload size limit unclear.",
+      "recorded_by": "agent-sub-2",
+      "recorded_at": "2026-11-12 09:55:00 UTC",
+      "updated_at": "2026-11-12 09:55:00 UTC",
+      "previous_outcomes": [],
+      "source": "agent_reported"
+    }
+  ],
+  "gaps": [
+    {
+      "surface": "POST /api/upload",
+      "risk_area": "File handling",
+      "outcome": "needs_follow_up"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+# Traces: PROMPT §1 Tier 4 (GPU inference); CONTRACT §2 (ollama_gpu_memory_util), §8.1 (ollama worker); ollama/RUNTIME.md §1 (GPU)
+#
+# NVIDIA overlay for the real Ollama worker. Requires the NVIDIA driver and nvidia-container-toolkit on the Docker host
+# (`nvidia-ctk runtime configure --runtime=docker`).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build --wait
+#
+# ollama-1 gets every GPU (set OLLAMA_GPU_COUNT=1 to take one). gpu-util samples nvidia-smi and publishes the highest GPU
+# memory utilisation (0-1) in a shared volume; llm-gateway reads it through OLLAMA_GPU_UTIL_FILE and exposes it as
+# ollama_gpu_memory_util, which the OllamaGpuMemoryHigh alert watches (the gateway container itself has no GPU access).
+services:
+  ollama-1:
+    environment:
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-4}
+      # 3: the preload set is now primary + fallback + security (errow falls back down that chain).
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${OLLAMA_GPU_COUNT:-all}
+              capabilities: [gpu]
+
+  gpu-util:
+    profiles: [llm]
+    image: ${OLLAMA_IMAGE:?OLLAMA_IMAGE is required (see .env.example)}
+    restart: unless-stopped
+    read_only: true
+    user: "0:0"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    network_mode: none
+    entrypoint:
+      - /bin/bash
+      - -ec
+      - |
+        while true; do
+          if usage="$$(nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader,nounits)"; then
+            printf '%s\n' "$$usage" | awk -F', *' '$$2 > 0 { r = $$1 / $$2; if (r > m) m = r } END { printf "%.4f\n", m + 0 }' > /run/gpu-util/.sample
+            mv /run/gpu-util/.sample /run/gpu-util/ollama_gpu_memory_util
+          fi
+          sleep 5
+        done
+    volumes:
+      - gpu-util:/run/gpu-util
+    healthcheck:
+      test: ["CMD", "test", "-s", "/run/gpu-util/ollama_gpu_memory_util"]
+      interval: 15s
+      timeout: 3s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "${LOG_MAX_SIZE:-10m}"
+        max-file: "${LOG_MAX_FILE:-5}"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 64m
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${OLLAMA_GPU_COUNT:-all}
+              capabilities: [utility]
+
+  llm-gateway:
+    environment:
+      OLLAMA_GPU_UTIL_FILE: /run/gpu-util/ollama_gpu_memory_util
+    volumes:
+      - gpu-util:/run/gpu-util:ro
+
+volumes:
+  gpu-util:

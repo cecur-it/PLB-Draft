@@ -1,0 +1,10 @@
+{
+  "statuses": {"agent-root-1": "completed", "agent-sub-2": "completed"},
+  "names": {"agent-root-1": "errowAgent", "agent-sub-2": "AuthzAgent"},
+  "parent_of": {"agent-root-1": null, "agent-sub-2": "agent-root-1"},
+  "errors": {},
+  "metadata": {
+    "agent-root-1": {"skills": ["sql_injection"], "task": "Assess scan-target.vendetta.lab"},
+    "agent-sub-2": {"skills": ["idor"], "task": "Test object level authorization"}
+  }
+}

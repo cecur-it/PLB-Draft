@@ -1,0 +1,68 @@
+---
+# vendetta-stack OpenSearch 2.17.1 - single-node variant (compose dev / smoke / CI).
+# Traces: CONTRACT s2 (ports, PKI), s3 (indices/ISM). Same security posture as
+# opensearch.yml: TLS on HTTP + transport, security plugin ON, internal users
+# only. Differences: discovery.type single-node, no seed hosts, memory lock is
+# switchable for hosts that cannot raise RLIMIT_MEMLOCK, shards are not tiered.
+#   NODE_NAME                 default container hostname (entrypoint.sh)
+#   OPENSEARCH_MEMORY_LOCK    true (default) | false
+# TLS material is read from config/certs (mount the stack pki/ dir there).
+
+cluster.name: ${OPENSEARCH_CLUSTER_NAME:vendetta-stack}
+node.name: ${NODE_NAME}
+node.roles: [cluster_manager, data, ingest]
+node.attr.box_type: hot
+
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+http.compression: true
+http.cors.enabled: false
+
+discovery.type: single-node
+
+bootstrap.memory_lock: ${OPENSEARCH_MEMORY_LOCK:true}
+path.data: /usr/share/opensearch/data
+path.logs: /usr/share/opensearch/logs
+path.repo: [/usr/share/opensearch/snapshots]
+
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: 85%
+cluster.routing.allocation.disk.watermark.high: 90%
+cluster.routing.allocation.disk.watermark.flood_stage: 95%
+
+action.auto_create_index: "+vendetta-alerts-*,+errow-*,+cs3-ai-*,+security-auditlog-*,+.*,-*"
+action.destructive_requires_name: true
+
+compatibility.override_main_response_version: false
+
+plugins.security.ssl.transport.pemcert_filepath: certs/opensearch.crt
+plugins.security.ssl.transport.pemkey_filepath: certs/opensearch.key
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/ca.crt
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.resolve_hostname: false
+plugins.security.ssl.transport.enabled_protocols: [TLSv1.3, TLSv1.2]
+
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/opensearch.crt
+plugins.security.ssl.http.pemkey_filepath: certs/opensearch.key
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.crt
+plugins.security.ssl.http.clientauth_mode: OPTIONAL
+plugins.security.ssl.http.enabled_protocols: [TLSv1.3, TLSv1.2]
+
+plugins.security.nodes_dn:
+  - 'CN=opensearch*'
+plugins.security.authcz.admin_dn:
+  - 'CN=vendetta-admin,O=vendetta-stack'
+
+plugins.security.allow_default_init_securityindex: true
+plugins.security.allow_unsafe_democertificates: false
+plugins.security.restapi.roles_enabled: [all_access, security_rest_api_access]
+plugins.security.restapi.password_min_length: 12
+plugins.security.restapi.password_score_based_validation_strength: strong
+plugins.security.system_indices.enabled: true
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+plugins.security.cache.ttl_minutes: 60
+
+plugins.security.audit.type: internal_opensearch

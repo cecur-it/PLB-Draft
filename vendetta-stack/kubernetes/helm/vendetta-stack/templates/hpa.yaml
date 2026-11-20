@@ -1,0 +1,58 @@
+# Traces: PROMPT section 1 Tier 3 (autoscaling), CONTRACT section 4.4 (gateway replicas), fluentd/RUNTIME.md (K8s).
+{{- range $n := list "1" "2" }}
+{{- if and $.Values.fluentd.enabled $.Values.fluentd.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fluentd-{{ $n }}
+  labels:
+{{ include "vs.labels" (dict "root" $ "component" (printf "fluentd-%s" $n)) | indent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: fluentd-{{ $n }}
+  minReplicas: {{ $.Values.fluentd.hpa.minReplicas }}
+  maxReplicas: {{ $.Values.fluentd.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.fluentd.hpa.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 900
+      policies:
+        - {type: Pods, value: 1, periodSeconds: 600}
+---
+{{- end }}
+{{- end }}
+{{- if and .Values.llmGateway.enabled .Values.llmGateway.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: llm-gateway
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: llm-gateway
+  minReplicas: {{ .Values.llmGateway.hpa.minReplicas }}
+  maxReplicas: {{ .Values.llmGateway.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.llmGateway.hpa.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - {type: Pods, value: 1, periodSeconds: 300}
+{{- end }}

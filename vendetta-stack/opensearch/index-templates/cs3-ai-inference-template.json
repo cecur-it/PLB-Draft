@@ -1,0 +1,86 @@
+{
+  "index_patterns": ["cs3-ai-inference-*"],
+  "priority": 200,
+  "version": 1,
+  "_meta": {
+    "description": "cs3.ai.inference metering events from the LLM gateway (CONTRACT s4.3): per-request model, role, latency, GPU seconds, token counts, guardrail result and the validated AIIncidentAnalysis. The tamper-evident copy of every event lives in cs3-ai-audit-*; this family is the queryable metering/analytics copy.",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 1000,
+      "index.mapping.ignore_malformed": true
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "numeric_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "event_type": { "type": "keyword" },
+        "request_id": { "type": "keyword" },
+        "tenant_id": { "type": "keyword" },
+        "incident_id": { "type": "keyword" },
+        "alert_id": { "type": "keyword" },
+        "model": { "type": "keyword" },
+        "role": { "type": "keyword" },
+        "engine_used": { "type": "keyword" },
+        "fallback": { "type": "boolean" },
+        "fallback_reason": { "type": "keyword" },
+        "latency_ms": { "type": "double" },
+        "gpu_seconds": { "type": "double" },
+        "tokens_in": { "type": "long" },
+        "tokens_out": { "type": "long" },
+        "verdict": { "type": "keyword" },
+        "guardrail": {
+          "properties": {
+            "passed": { "type": "boolean" },
+            "violations": { "type": "keyword" }
+          }
+        },
+        "input_sha256": { "type": "keyword" },
+        "input_chars": { "type": "long" },
+        "analysis": {
+          "properties": {
+            "triageSummary": { "type": "text", "norms": false },
+            "severityAssessment": { "type": "keyword" },
+            "mitreTactic": { "type": "keyword" },
+            "mitreTechnique": { "type": "keyword" },
+            "probableRootCause": { "type": "text", "norms": false },
+            "recommendedImmediateAction": { "type": "text", "norms": false },
+            "confidenceScore": { "type": "float" },
+            "engineUsed": { "type": "keyword" },
+            "needsVerification": { "type": "boolean" },
+            "gpuSeconds": { "type": "double" },
+            "proposedDetectionRule": { "type": "text", "norms": false },
+            "proposedRemediation": { "type": "text", "norms": false },
+            "toolCalls": {
+              "properties": {
+                "tool": { "type": "keyword" },
+                "args": { "type": "object", "enabled": false },
+                "rationale": { "type": "text", "norms": false }
+              }
+            }
+          }
+        },
+        "chain_id": { "type": "keyword" },
+        "seq": { "type": "long" },
+        "prev_hash": { "type": "keyword" },
+        "hash": { "type": "keyword" }
+      }
+    }
+  }
+}

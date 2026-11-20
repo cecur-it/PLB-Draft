@@ -1,0 +1,11 @@
+# Applies to the `stack` named build context of Dockerfile.errow (docker build --build-context stack=vendetta-stack/errow).
+# Only the stack's own runtime assets are needed; everything else (feedback-loop, mcp, shipper, docs, tests, logs) stays out.
+*
+!entrypoint.sh
+!dind-ready.py
+!stack-config.py
+!config/errow-config.yaml
+!config/llm-providers.yaml
+!tui/bridge/go.mod
+!tui/bridge/*.go
+!viewer/dist/static

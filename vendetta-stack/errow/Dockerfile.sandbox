@@ -1,0 +1,73 @@
+# Dockerfile.sandbox - Errow Kali sandbox + gobuster + bbot -> vendetta-stack/errow-sandbox:${STACK_VERSION}
+# Traces: CONTRACT §0 (pinned versions, non-root), §8 (Errow addenda: sandbox image = upstream containers/Dockerfile reused, not forked;
+#         gobuster/bbot added for the lab profile), §11 (RUNTIME.md: errow_IMAGE).
+#
+# The upstream sandbox (cecur-it-cs3-v1.1.0/errow/containers/Dockerfile + docker-entrypoint.sh) already ships Caido (:48080),
+# nmap, nuclei, subfinder, ffuf, wafw00f, trufflehog, httpx, katana ... but NOT gobuster or bbot. This file layers exactly those two
+# on top, so the upstream image stays untouched. Build in two steps (the base is heavy: ~5 GB of Kali tooling, build it once per release
+# and `docker save` it for air-gapped sites):
+#
+#   # 1. upstream base (context = upstream Errow tree; it COPYs errow/tools/proxy/caido_api.py)
+#   docker build -f cecur-it-cs3-v1.1.0/errow/containers/Dockerfile \
+#       -t vendetta-stack/errow-sandbox-base:1.0.0 cecur-it-cs3-v1.1.0/errow
+#   # 2. this layer (context = this directory; Dockerfile.sandbox.dockerignore keeps it empty)
+#   docker build -f vendetta-stack/errow/Dockerfile.sandbox \
+#       --build-arg ERROW_SANDBOX_BASE=vendetta-stack/errow-sandbox-base:1.0.0 \
+#       -t vendetta-stack/errow-sandbox:1.0.0 vendetta-stack/errow
+#
+# Then point Errow at it:  errow_IMAGE=vendetta-stack/errow-sandbox:1.0.0  (set by the compose `errow` service; the entrypoint loads
+# ERROW_SANDBOX_IMAGE_TAR into the DinD daemon when the image is not present there yet).
+#
+# Build args:
+#   ERROW_SANDBOX_BASE   image built in step 1 (pin it by digest for production: repo@sha256:...). The upstream Dockerfile tracks
+#                        kalilinux/kali-rolling:latest, so reproducibility comes from freezing/saving this base, not from the tag.
+#   GOBUSTER_VERSION     v3.8.2 (release tarballs are sha256-verified below for amd64 and arm64)
+#   BBOT_VERSION         3.1.0 (PyPI), installed into an isolated venv at /opt/bbot
+#   BBOT_PREINSTALL_DEPS true bakes bbot's module dependencies into the image (needs network at build time); the default false keeps
+#                        the image small, and bbot then installs module deps on first use, which cannot work in an air-gap, so
+#                        air-gapped sites should build with true.
+#   PIP_INDEX_URL        internal PyPI mirror for restricted networks
+ARG ERROW_SANDBOX_BASE=vendetta-stack/errow-sandbox-base:1.0.0
+FROM ${ERROW_SANDBOX_BASE}
+
+ARG STACK_VERSION=1.0.0
+ARG TARGETARCH
+ARG GOBUSTER_VERSION=3.8.2
+ARG GOBUSTER_SHA256_AMD64=c8a8c6a966eeb011d682a0ef2305a3e3a86b8b3fabe744350c00a766cc0f8021
+ARG GOBUSTER_SHA256_ARM64=84b175ae5ae770efddb3e675b0e24e56ef0f484a0d751beff0b0629e52c7f4da
+ARG BBOT_VERSION=3.1.0
+ARG BBOT_PREINSTALL_DEPS=false
+ARG PIP_INDEX_URL
+
+LABEL org.opencontainers.image.title="vendetta-stack/errow-sandbox" \
+      org.opencontainers.image.description="Errow Kali sandbox (upstream image) plus gobuster and bbot" \
+      org.opencontainers.image.version="${STACK_VERSION}"
+
+USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN set -eux; \
+    case "${TARGETARCH:-$(dpkg --print-architecture)}" in \
+      amd64) asset=gobuster_Linux_x86_64.tar.gz; sum="${GOBUSTER_SHA256_AMD64}" ;; \
+      arm64) asset=gobuster_Linux_arm64.tar.gz;  sum="${GOBUSTER_SHA256_ARM64}" ;; \
+      *) echo "unsupported architecture for gobuster: ${TARGETARCH:-unknown}" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /opt/gobuster; \
+    curl -fsSL --retry 3 -o "/opt/gobuster/${asset}" "https://github.com/OJ/gobuster/releases/download/v${GOBUSTER_VERSION}/${asset}"; \
+    echo "${sum}  /opt/gobuster/${asset}" | sha256sum -c -; \
+    tar -xzf "/opt/gobuster/${asset}" -C /opt/gobuster gobuster; \
+    install -m 0755 /opt/gobuster/gobuster /usr/local/bin/gobuster; \
+    rm -rf /opt/gobuster; \
+    gobuster --version >/dev/null
+
+RUN set -eux; \
+    python3 -m venv /opt/bbot; \
+    /opt/bbot/bin/pip install --no-cache-dir --disable-pip-version-check "bbot==${BBOT_VERSION}"; \
+    ln -s /opt/bbot/bin/bbot /usr/local/bin/bbot; \
+    if [ "${BBOT_PREINSTALL_DEPS}" = "true" ]; then /opt/bbot/bin/bbot --install-all-deps --yes; fi; \
+    chown -R pentester:pentester /opt/bbot; \
+    bbot --version >/dev/null; \
+    rm -rf /root/.config/bbot
+
+# the base image's WORKDIR/ENTRYPOINT (docker-entrypoint.sh) are inherited; only the user is restored
+USER pentester

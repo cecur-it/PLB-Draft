@@ -1,0 +1,7 @@
+# Traces: PROMPT section 1 Tier 3; CONTRACT section 2. base/resources.yaml is generated: kubernetes/kustomize/render-base.sh --write
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vendetta-stack
+resources:
+  - namespace.yaml
+  - resources.yaml

@@ -1,0 +1,233 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "errow",
+          "informationUri": "https://errow.ai",
+          "rules": [
+            {
+              "id": "CWE-89",
+              "name": "SQL Injection in Product Search",
+              "shortDescription": {
+                "text": "SQL Injection in Product Search"
+              },
+              "fullDescription": {
+                "text": "SQL injection vulnerability in the product search endpoint allowing unauthenticated retrieval of the full product catalogue."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "SQL injection vulnerability in the product search endpoint allowing unauthenticated retrieval of the full product catalogue.\n\nUnauthenticated attacker can extract all product data, leading to information disclosure and potential further exploitation.\n\nUse parameterised queries or an allowlist of allowed characters for the `q` parameter; escape or reject special characters such as quotes and comment markers.",
+                "markdown": "SQL injection vulnerability in the product search endpoint allowing unauthenticated retrieval of the full product catalogue.\n\nUnauthenticated attacker can extract all product data, leading to information disclosure and potential further exploitation.\n\nUse parameterised queries or an allowlist of allowed characters for the `q` parameter; escape or reject special characters such as quotes and comment markers."
+              },
+              "properties": {
+                "security-severity": "9.1",
+                "tags": [
+                  "security",
+                  "CWE-89",
+                  "stride:T"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/89.html"
+            },
+            {
+              "id": "CWE-22",
+              "name": "File Disclosure via Path Traversal",
+              "shortDescription": {
+                "text": "File Disclosure via Path Traversal"
+              },
+              "fullDescription": {
+                "text": "Path traversal in the FTP directory listing endpoint enables unauthorized retrieval of arbitrary files."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "Path traversal in the FTP directory listing endpoint enables unauthorized retrieval of arbitrary files.\n\nUnauthenticated attacker can read sensitive files such as backup manifests, source maps, and configuration files, leading to information disclosure.\n\nNormalize and validate all path inputs; reject null bytes and directory traversal sequences; serve files from a dedicated, isolated directory with no write/execute permissions.",
+                "markdown": "Path traversal in the FTP directory listing endpoint enables unauthorized retrieval of arbitrary files.\n\nUnauthenticated attacker can read sensitive files such as backup manifests, source maps, and configuration files, leading to information disclosure.\n\nNormalize and validate all path inputs; reject null bytes and directory traversal sequences; serve files from a dedicated, isolated directory with no write/execute permissions."
+              },
+              "properties": {
+                "security-severity": "7.5",
+                "tags": [
+                  "security",
+                  "CWE-22",
+                  "stride:T",
+                  "stride:I"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/22.html"
+            }
+          ],
+          "version": "1.7.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "SQL Injection in Product Search\n\nSQL injection vulnerability in the product search endpoint allowing unauthenticated retrieval of the full product catalogue."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "http://host.docker.internal:3000",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "12ee397e5a822bd0a5eb7eee600cd9c8ef896f79d043adcb419ba5f7ec65bbd2"
+          },
+          "properties": {
+            "security-severity": "9.1",
+            "errow_vuln_class_hash": "091274e2ad40f12c26f944cb00be2712c536b9e81137676e98311bc2ccf04d16",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0001",
+              "severity": "critical",
+              "cvss": 9.1,
+              "timestamp": "2026-11-19 10:37:16 UTC",
+              "target": "http://host.docker.internal:3000",
+              "cwe": "CWE-89",
+              "impact": "Unauthenticated attacker can extract all product data, leading to information disclosure and potential further exploitation.",
+              "technical_analysis": "The search endpoint directly interpolates the `q` query parameter into the SQL query without proper sanitization or parameterisation. Supplying a crafted value containing `') OR 1=1--` bypasses intended filtering, causing the query to evaluate as always true and returning all rows. The backend uses SQLite, and the incomplete input error reflects malformed query construction.",
+              "remediation_steps": "Use parameterised queries or an allowlist of allowed characters for the `q` parameter; escape or reject special characters such as quotes and comment markers.",
+              "counterevidence": "The injection point requires precise placement of a closing quote and comment marker; if the backend sanitises input differently or uses a different query construction method, the payload may fail. Additionally, the error response may be generic in some environments, potentially hiding the vulnerability.",
+              "confidence": "high",
+              "severity_change_conditions": "If subsequent testing confirms that the payload reliably returns the full catalogue across multiple requests and server configurations, the severity could increase; if it is found that the endpoint filters input after all and the error is due to unrelated server misconfiguration, the severity would decrease.",
+              "poc": {
+                "description": "1. Send GET request to `/rest/products/search?q=apple` – returns a subset of products.\n2. Send GET request to `/rest/products/search?q=' OR 1=1--` – returns the complete product catalogue (~45 items).",
+                "script_available": true
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Authentication Bypass via SQL Injection\n\nSQL injection in the login endpoint allows unauthenticated access to admin privileges."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "http://host.docker.internal:3000",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "12ee397e5a822bd0a5eb7eee600cd9c8ef896f79d043adcb419ba5f7ec65bbd2"
+          },
+          "properties": {
+            "security-severity": "9.1",
+            "errow_vuln_class_hash": "091274e2ad40f12c26f944cb00be2712c536b9e81137676e98311bc2ccf04d16",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0002",
+              "severity": "critical",
+              "cvss": 9.1,
+              "timestamp": "2026-11-19 10:37:34 UTC",
+              "target": "http://host.docker.internal:3000",
+              "cwe": "CWE-89",
+              "impact": "Unauthenticated attacker can obtain a valid JWT granting admin access, leading to full account takeover.",
+              "technical_analysis": "The login endpoint interpolates the `email` field directly into the SQL query without proper parameterisation. Supplying `email\":\"' OR 1=1--\"` closes the string, makes the condition always true, and comments out the password check, resulting in authentication bypass. The server issues a JWT for the admin user.",
+              "remediation_steps": "Implement proper parameterised queries or an allowlist for email inputs; validate credentials against stored hashes rather than constructing dynamic SQL.",
+              "counterevidence": "If the backend sanitises input after the comment marker or uses a different query construction that neutralises the injection, the bypass would fail; also, if authentication required additional checks not present in the tested request, the bypass might be incomplete.",
+              "confidence": "high",
+              "severity_change_conditions": "If further testing reveals that the bypass only works under specific conditions (e.g., a particular SQL version or configuration) that are not present in production, the severity could decrease; if it works consistently across configurations, the severity remains high.",
+              "poc": {
+                "description": "1. POST to `/rest/user/login` with JSON body containing `\"email\":\"' OR 1=1--\",\"password\":\"x\"`.\n2. Server responds with a JWT token for the admin user.",
+                "script_available": true
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-22",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "File Disclosure via Path Traversal\n\nPath traversal in the FTP directory listing endpoint enables unauthorized retrieval of arbitrary files."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "http://host.docker.internal:3000",
+                  "kind": "resource"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "3ed788d0220b3a2e7204cfd65c753faffe83e7ee4cca63df3bf1dc0042f0b63e"
+          },
+          "properties": {
+            "security-severity": "7.5",
+            "errow_vuln_class_hash": "6c58275b746a212b66e13227aff805df9d5241b3a0ee6715ddb4941ae4556cfd",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0003",
+              "severity": "high",
+              "cvss": 7.5,
+              "timestamp": "2026-11-19 10:37:49 UTC",
+              "target": "http://host.docker.internal:3000",
+              "cwe": "CWE-22",
+              "impact": "Unauthenticated attacker can read sensitive files such as backup manifests, source maps, and configuration files, leading to information disclosure.",
+              "technical_analysis": "The FTP endpoint appears to treat directory paths as file system locations without proper sanitisation. Supplying a crafted path such as `ftp/package.json.bak%2500.md` (URL‑encoded null byte followed by `.md`) bypasses intended directory restriction and returns the contents of the target file with a 200 OK response.",
+              "remediation_steps": "Normalize and validate all path inputs; reject null bytes and directory traversal sequences; serve files from a dedicated, isolated directory with no write/execute permissions.",
+              "counterevidence": "If the server were to sanitise the `%00` character or reject paths containing it, the bypass would fail; additionally, if the endpoint were properly restricted to specific file types, the disclosure would be prevented.",
+              "confidence": "high",
+              "severity_change_conditions": "If subsequent tests show that the traversal payload is blocked or returns a 404/403, the severity would decrease; if the endpoint continues to serve arbitrary files, the severity remains high.",
+              "poc": {
+                "description": "1. GET `/ftp/` – lists directory contents.\n2. GET `/ftp/package.json.bak%2500.md` – returns the backup package.json file.",
+                "script_available": true
+              }
+            }
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "properties": {
+        "syntheticLocationCount": 3
+      }
+    }
+  ]
+}

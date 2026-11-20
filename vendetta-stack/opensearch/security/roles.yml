@@ -1,0 +1,58 @@
+---
+# Custom roles for the stack's data plane (CONTRACT s3 index families).
+# `admin` (all_access) is the only user created by entrypoint.sh; map further
+# users to these roles through the security REST API with least privilege:
+#   vendetta_ingest  - writers (Fluentd, apply init job with a non-admin user)
+#   vendetta_analyst - read-only analysts / Grafana / vendetta-to-errow poller
+_meta:
+  type: "roles"
+  config_version: 2
+
+vendetta_ingest:
+  reserved: false
+  description: "Fluentd / shim writers for the stack index families"
+  cluster_permissions:
+    - "cluster_composite_ops"
+    - "cluster:monitor/main"
+    - "cluster:monitor/health"
+    - "indices:admin/template/get"
+    - "indices:admin/index_template/get"
+  index_permissions:
+    - index_patterns:
+        - "vendetta-alerts*"
+        - "errow-*"
+        - "cs3-ai-*"
+      allowed_actions:
+        - "indices:data/write/*"
+        - "indices:data/read/get*"
+        - "indices:data/read/search*"
+        - "indices:admin/create"
+        - "indices:admin/mapping/put"
+        - "indices:admin/aliases/get"
+        - "indices:admin/get"
+        - "indices:monitor/stats"
+
+vendetta_analyst:
+  reserved: false
+  description: "Read-only access to alerts, findings and AI audit data"
+  cluster_permissions:
+    - "cluster_composite_ops_ro"
+    - "cluster:monitor/main"
+    - "cluster:monitor/health"
+  index_permissions:
+    - index_patterns:
+        - "vendetta-alerts*"
+        - "errow-*"
+        - "cs3-ai-*"
+      allowed_actions:
+        - "read"
+        - "indices:admin/get"
+        - "indices:admin/mappings/get"
+        - "indices:monitor/settings/get"
+    - index_patterns:
+        - ".kibana*"
+      allowed_actions:
+        - "read"
+        - "write"
+        - "delete"
+        - "create_index"

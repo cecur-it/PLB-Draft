@@ -1,0 +1,20 @@
+# Traces: PROMPT section 1 Tier 3 (dev cluster); CONTRACT section 2 (single-node OpenSearch config, opensearch.single-node.yml).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opensearch
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: opensearch
+          env:
+            - {name: OPENSEARCH_JAVA_OPTS, value: "-Xms512m -Xmx512m"}
+            - {name: OPENSEARCH_SEED_HOSTS, value: "opensearch-0.opensearch-headless"}
+            - {name: OPENSEARCH_INITIAL_MANAGERS, value: "opensearch-0"}
+          resources:
+            requests: {cpu: 500m, memory: 1536Mi}
+            limits: {cpu: "2", memory: 1536Mi}
+          volumeMounts:
+            - {name: tree, mountPath: /usr/share/opensearch/config/opensearch.yml, subPath: opensearch.single-node.yml, readOnly: true}

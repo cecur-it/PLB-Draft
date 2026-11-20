@@ -1,0 +1,28 @@
+---
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+all_access:
+  reserved: false
+  backend_roles:
+    - "admin"
+  description: "Maps the admin backend role to all_access"
+
+security_rest_api_access:
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Lets admin call the security REST API"
+
+vendetta_ingest:
+  reserved: false
+  backend_roles:
+    - "vendetta-ingest"
+  description: "Maps backend role vendetta-ingest"
+
+vendetta_analyst:
+  reserved: false
+  backend_roles:
+    - "vendetta-analyst"
+  description: "Maps backend role vendetta-analyst"

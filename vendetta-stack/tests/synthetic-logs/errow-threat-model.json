@@ -1,0 +1,15 @@
+{
+  "scan-target.vendetta.lab:8080": {
+    "target": "scan-target.vendetta.lab:8080",
+    "written_at": "2026-11-12T09:10:48.337205+00:00",
+    "written_by": "ErrowAgent",
+    "content": "# Threat model: scan-target.vendetta.lab:8080\n\n## Overview\nIntentionally vulnerable Node.js/Express shop used as the authorised lab target of the Vendetta stack. A single-page Angular front end talks to a REST API under /rest and /api backed by an embedded SQLite database. It holds no real customer data; the value at stake is demonstrating detection and response.\n\n## Trust Boundaries and Assumptions\n- Internet/lab client -> Express app on :8080 (no WAF, no TLS termination in the lab).\n- Express app -> SQLite file on the same host (full read/write by the application account).\n- Vendetta agent on the same host watches /var/log and the application directory (FIM) and ships events to the manager.\nAssumption: the host is reachable only from the lab network; every request in scope originates from the Errow sandbox.\n\n## Attack Surface and Attacker Stories\n- Unauthenticated attacker abuses /rest/products/search?q= to read the Users table (SQL injection).\n- A victim opens a crafted /#/search?q= link and the reflected value executes script (XSS).\n- Verbose errors on /api/* leak framework versions and filesystem paths, easing follow-on attacks.\nUser-controlled inputs: query string, JSON bodies, cookies, Authorization header, uploaded file names.\n\n## Severity Calibration\nCritical: unauthenticated remote code execution or full credential database disclosure with reusable secrets. High: authenticated-user data disclosure or SQL injection reaching credential tables. Medium: client-side injection requiring victim interaction. Low: information disclosure without direct exploitation path.\n",
+    "amendments": [
+      {
+        "at": "2026-11-12T09:23:12.904871+00:00",
+        "by": "ErrowAgent",
+        "content": "Confirmed the SQLite back-end and nine-column product query; the Users table stores MD5 password hashes, which raises the SQL injection impact to credential disclosure."
+      }
+    ]
+  }
+}

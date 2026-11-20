@@ -1,0 +1,79 @@
+# errow-config.yaml - documented, env-style configuration of the stack's Errow orchestrator (service `errow`, `errow-viewer`).
+# Traces: CONTRACT §2 (paths/ports), §4.4 (gateway-only LLM), §8 (Errow addenda), §11 (RUNTIME.md).
+#
+# Read by errow-entrypoint at start (installed at /etc/errow/errow-config.yaml; override with ERROW_CONFIG_FILE) through
+# stack-config.py. Precedence for every setting: container environment (compose `environment:`) > this file > built-in default,
+# so an operator can always override a value without editing the image. `profiles.<CS3_PROFILE>.env` overlays `env`.
+#
+# What this file may NOT contain: secrets and gateway wiring. Names outside the allow-list in stack-config.py are rejected
+# (entrypoint exit 78): keys/tokens come only from files (/run/secrets/llm_gateway_token, LLM_API_KEY_FILE in profile `cloud`),
+# and LLM_API_BASE / errow_LLM / errow_APP_URL / errow_IMAGE / errow_TELEMETRY are derived by the entrypoint from the settings below.
+#
+# Where Errow writes things (not configurable upstream, listed so operators know what to mount):
+#   /workspace/errow_runs/<run>/   run.json vulnerabilities.json findings.sarif coverage.json errow.log .state/  (volume errow-runs)
+#   /var/log/errow/cli.log         redacted copy of the CLI stdout/stderr                                         (volume errow-ndjson)
+#   /var/log/errow/*.ndjson        written by errow-shipper from the run artifacts
+#   $HOME/.errow/                  Errow's 0600 config (cli-config.json, written via errow/utils/secret_files.py) - keep HOME on a tmpfs
+version: 1
+
+env:
+  # ------------------------------------------------------------------ scan defaults (errow --scan-mode / --fail-on / --instruction-file)
+  # quick    fast CI/CD-style checks; the stack default so an unattended scan stays short on a local model
+  # standard routine testing
+  # deep     thorough review (Errow's own default); use for scheduled lab scans with the forensic model
+  ERROW_SCAN_MODE: quick
+  # Exit-code gate for CI use (errow --fail-on); unset keeps Errow's default (any finding exits 2).
+  # ERROW_FAIL_ON: high
+  # Optional per-run instructions file; mount it read-only.
+  # ERROW_INSTRUCTION_FILE: /workspace/instructions/scope.md
+
+  # ------------------------------------------------------------------ sandbox (Kali image run inside the errow-dind daemon)
+  # Built from errow/Dockerfile.sandbox (upstream containers/Dockerfile + gobuster + bbot). Default (when unset):
+  # vendetta-stack/errow-sandbox:${STACK_VERSION}; set ERROW_SANDBOX_IMAGE in the environment to pin another tag or a digest.
+  # When the daemon does not have the image yet, mount a `docker save` tarball and set ERROW_SANDBOX_IMAGE_TAR (loaded before the
+  # first scan).
+  # ERROW_SANDBOX_IMAGE_TAR: /images/errow-sandbox.tar
+  ERROW_DIND_TIMEOUT: 120
+
+  # ------------------------------------------------------------------ telemetry: OPT-IN (default OFF in every profile)
+  # `true` enables Errow's PostHog events (errow_TELEMETRY) in profiles cloud/onprem/edge only. Profile airgap forces false.
+  ERROW_TELEMETRY: false
+  # Errow Cloud (reports, email verification, remote source upload) stays blackholed (errow_APP_URL=http://127.0.0.1:9)
+  # unless a cloud-profile deployment explicitly enables it; profile airgap refuses it (fail-closed).
+  ERROW_CLOUD_ENABLED: false
+  ERROW_CLOUD_URL: https://app.errow.ai
+
+  # ------------------------------------------------------------------ target safety
+  # Comma-separated host globs a scan target must match (entrypoint exit 77 otherwise). The shipped default only permits the
+  # Vendetta lab target; widen it per engagement, and do not remove it in production.
+  ERROW_ALLOWED_TARGETS: "scan-target.vendetta.lab,*.vendetta.lab"
+
+  # ------------------------------------------------------------------ report / log directories (inside the container)
+  ERROW_WORKDIR: /workspace
+  ERROW_LOG_DIR: /var/log/errow
+
+  # ------------------------------------------------------------------ viewer (`errow-viewer`, mode view)
+  ERROW_VIEWER_HOST: 0.0.0.0
+  ERROW_VIEWER_PORT: 8765
+  # re-serve the newest run when a newer run.json appears (the upstream viewer serves exactly one run per process)
+  ERROW_VIEWER_FOLLOW: true
+  ERROW_VIEWER_POLL: 10
+  ERROW_VIEWER_MIN_RESTART: 60
+
+  # ------------------------------------------------------------------ Errow tuning passed through untouched
+  errow_MAX_CONTEXT_IMAGES: 3
+  errow_TOOL_OUTPUT_MAX_TOKENS: 8000
+  # local models behind the gateway have no provider-side prompt cache
+  errow_PROMPT_CACHE: false
+
+profiles:
+  cloud: {}
+  onprem: {}
+  edge:
+    env:
+      # small edge nodes: keep tool output compact for the local model's context window
+      errow_TOOL_OUTPUT_MAX_TOKENS: 4000
+  airgap:
+    env:
+      ERROW_TELEMETRY: false
+      ERROW_CLOUD_ENABLED: false

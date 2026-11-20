@@ -1,0 +1,41 @@
+{
+  "description": "Gates which env template and prompts are offered per deployment profile. An operator cannot accidentally populate cloud API keys into an airgap/onprem profile, or vice versa — the wizard only ever prompts for the fields listed for the selected profile and force-blanks every field listed under 'forbidden'.",
+  "profiles": {
+    "cloud": {
+      "template": "env.cloud.template",
+      "label": "CS3 Cloud (PaaS)",
+      "prompts": [
+        { "key": "INFERENCE_GATEWAY_URL", "message": "Inference gateway URL (OpenAI-compatible, e.g. https://llm.example.internal/v1)", "secret": false, "required": true },
+        { "key": "INFERENCE_GATEWAY_KEY", "message": "Inference gateway bearer token (optional)", "secret": true, "required": false },
+        { "key": "CS3_TENANT_ID", "message": "CS3 tenant identifier", "secret": false, "required": true },
+        { "key": "CS3_TENANT_REGION", "message": "CS3 tenant region (e.g. us-east, eu-west)", "secret": false, "required": true, "default": "us-east" }
+      ],
+      "forbidden": ["OLLAMA_BASE_URL", "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "CS3_AIRGAP_BUNDLE_SHA256", "CS3_AIRGAP_BUNDLE_TAG"],
+      "requiredForLaunch": ["INFERENCE_GATEWAY_URL", "CS3_TENANT_ID"]
+    },
+    "onprem": {
+      "template": "env.onprem.template",
+      "label": "Connected On-Prem (local Ollama)",
+      "prompts": [
+        { "key": "OLLAMA_PRIMARY_MODEL", "message": "Primary agentic model tag", "secret": false, "required": true, "default": "nemotron-3-nano:30b" },
+        { "key": "OLLAMA_FALLBACK_MODEL", "message": "Fallback/secondary model tag", "secret": false, "required": true, "default": "gemma4:26b" },
+        { "key": "OLLAMA_SECURITY_MODEL", "message": "Security/Errow model tag (agentic tool-calling)", "secret": false, "required": true, "default": "nemotron-3-nano:30b" },
+        { "key": "INFERENCE_MODEL_REASONING_DEEP", "message": "Deep-reasoning and security-fallback model tag", "secret": false, "required": true, "default": "gemma4:31b" }
+      ],
+      "forbidden": ["GEMINI_API_KEY", "DEEPSEEK_API_KEY", "CS3_AIRGAP_BUNDLE_SHA256", "CS3_AIRGAP_BUNDLE_TAG"],
+      "requiredForLaunch": ["CS3_LLM_MODE", "OLLAMA_BASE_URL"]
+    },
+    "airgap": {
+      "template": "env.airgap.template",
+      "label": "Fully Disconnected / Air-Gapped",
+      "prompts": [
+        { "key": "OLLAMA_PRIMARY_MODEL", "message": "Primary agentic model tag (must be present in the verified bundle)", "secret": false, "required": true, "default": "nemotron-3-nano:30b" },
+        { "key": "OLLAMA_FALLBACK_MODEL", "message": "Fallback/secondary model tag (must be present in the verified bundle)", "secret": false, "required": true, "default": "gemma4:26b" },
+        { "key": "OLLAMA_SECURITY_MODEL", "message": "Security/Errow model tag (must be present in the verified bundle)", "secret": false, "required": true, "default": "nemotron-3-nano:30b" },
+        { "key": "INFERENCE_MODEL_REASONING_DEEP", "message": "Deep-reasoning/security-fallback model tag (must be present in the verified bundle)", "secret": false, "required": true, "default": "gemma4:31b" }
+      ],
+      "forbidden": ["GEMINI_API_KEY", "DEEPSEEK_API_KEY"],
+      "requiredForLaunch": ["CS3_LLM_MODE", "OLLAMA_BASE_URL", "CS3_AIRGAP_BUNDLE_SHA256", "CS3_AIRGAP_BUNDLE_TAG"]
+    }
+  }
+}

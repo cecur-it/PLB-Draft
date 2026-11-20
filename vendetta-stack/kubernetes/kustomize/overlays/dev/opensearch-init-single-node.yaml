@@ -1,0 +1,12 @@
+# Traces: PROMPT section 1 Tier 3 (dev cluster); opensearch/RUNTIME.md (OPENSEARCH_EXPECTED_NODES gates the post-install apply).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opensearch-init
+spec:
+  template:
+    spec:
+      containers:
+        - name: apply
+          env:
+            - {name: OPENSEARCH_EXPECTED_NODES, value: "1"}

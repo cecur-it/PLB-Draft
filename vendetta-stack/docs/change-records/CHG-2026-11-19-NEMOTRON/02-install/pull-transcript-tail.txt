@@ -1,0 +1,13 @@
+verifying sha256 digest ⠙ [K[?25h[?2026l[?2026h[?25l[A[A[A[A[1Gpulling manifest [K
+verifying sha256 digest [K
+writing manifest [K
+success [K[?25h[?2026l
+success
+pulling 886a916b8f37: 100% ▕██████████████████▏  479 B                         [K
+verifying sha256 digest ⠙ [K[?25h[?2026l[?2026h[?25l[A[A[A[A[1Gpulling manifest [K
+pulling 2eb53a090487: 100% ▕██████████████████▏ 5.8 GB                         [K
+pulling 1aa1b0076b41: 100% ▕██████████████████▏ 921 MB                         [K
+pulling 886a916b8f37: 100% ▕██████████████████▏  479 B                         [K
+verifying sha256 digest [K
+success [K[?25h[?2026l
+success

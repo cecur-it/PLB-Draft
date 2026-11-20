@@ -1,0 +1,37 @@
+{
+  "run_id": "scan-target-vendetta-lab_7f3a",
+  "run_name": "scan-target-vendetta-lab_7f3a",
+  "start_time": "2026-11-12T09:10:00.000000+00:00",
+  "end_time": "2026-11-12T10:05:30.000000+00:00",
+  "status": "completed",
+  "auth_mode": "api_key",
+  "scan_mode": "standard",
+  "instruction": "Assess the lab web application; do not run denial-of-service tests.",
+  "targets_info": [
+    {
+      "type": "web_application",
+      "details": {"target_url": "http://scan-target.vendetta.lab"},
+      "original": "http://scan-target.vendetta.lab"
+    }
+  ],
+  "llm_usage": {
+    "requests": 42,
+    "input_tokens": 210000,
+    "output_tokens": 9800,
+    "total_tokens": 219800,
+    "cost": 0.4821,
+    "providers": {
+      "openai": {"requests": 42, "input_tokens": 210000, "cached_tokens": 150000, "cost": 0.4821, "cache_misses": 3, "missed_tokens": 900}
+    },
+    "agents": [
+      {"agent_id": "agent-root-1", "agent_name": "errowAgent", "model": "gpt-5.5", "requests": 30,
+       "input_tokens": 150000, "output_tokens": 7000, "total_tokens": 157000,
+       "input_tokens_details": {"cached_tokens": 110000}, "output_tokens_details": {"reasoning_tokens": 1200}, "cost": 0.3400},
+      {"agent_id": "agent-sub-2", "agent_name": "AuthzAgent", "model": "gpt-5.5", "requests": 12,
+       "input_tokens": 60000, "output_tokens": 2800, "total_tokens": 62800,
+       "input_tokens_details": [{"cached_tokens": 40000}], "output_tokens_details": [{"reasoning_tokens": 400}], "cost": 0.1421}
+    ]
+  },
+  "scan_results": {"executive_summary": "Two findings were filed.", "methodology": "Black-box testing of the lab web application."},
+  "mcp_connections": []
+}

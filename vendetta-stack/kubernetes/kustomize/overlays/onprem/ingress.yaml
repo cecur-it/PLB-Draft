@@ -1,0 +1,31 @@
+# Traces: PROMPT section 1 Tier 3; errow/RUNTIME.md (the viewer has no authentication of its own: put an auth gate in front of it).
+# Create the Secrets first: errow-viewer-basic-auth (htpasswd, key "auth") and vendetta-stack-tls (kubernetes.io/tls).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: errow-viewer
+  labels:
+    app.kubernetes.io/name: vendetta-stack
+    app.kubernetes.io/component: errow-viewer
+    app.kubernetes.io/part-of: vendetta-stack
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: errow-viewer-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: Authentication Required - errow viewer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["errow-viewer.vendetta.lab"]
+      secretName: vendetta-stack-tls
+  rules:
+    - host: "errow-viewer.vendetta.lab"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: errow-viewer
+                port:
+                  name: http

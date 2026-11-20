@@ -1,0 +1,58 @@
+# cs3-ollama.service — hardened, loopback-only Ollama worker (systemd).
+#
+# Traces: PROMPT §1 Tier 4 (sovereign LLM tier, Ollama 0.40.5 bound to 127.0.0.1:11434),
+#         PROMPT §3 hardening (non-root, sandboxed), CONTRACT §8.1 (Ollama stays on loopback).
+#         Mirrors CS3 scripts/install-ollama.sh; ollama/install-ollama.sh renders this file
+#         (tunables only), diffs it against /etc/systemd/system/ and reloads on change.
+#
+# The sandbox is EXACTLY these 15 directives (count them below; `PrivateDevices=false`
+# is deliberate so the NVIDIA device nodes stay visible for GPU inference):
+#    1 NoNewPrivileges            2 ProtectSystem              3 ProtectHome
+#    4 PrivateTmp                 5 ProtectKernelTunables      6 ProtectKernelModules
+#    7 ProtectControlGroups       8 CapabilityBoundingSet      9 MemoryDenyWriteExecute
+#   10 RestrictSUIDSGID          11 SystemCallFilter          12 LockPersonality
+#   13 RestrictRealtime          14 RestrictAddressFamilies   15 PrivateDevices
+# ReadWritePaths (the weight store) and LimitNOFILE are resource policy, not counted above.
+# If a CUDA driver needs W+X mappings, relax MemoryDenyWriteExecute in a drop-in
+# (`systemctl edit cs3-ollama`) after measuring with `systemd-analyze security`.
+
+[Unit]
+Description=CS3 Ollama (hardened, loopback-only, non-root)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cs3-ollama
+Group=cs3-ollama
+Environment=HOME=/var/lib/cs3-ollama
+Environment=OLLAMA_HOST=127.0.0.1:11434
+Environment=OLLAMA_MODELS=/var/lib/cs3-ollama/.ollama/models
+Environment=OLLAMA_NUM_PARALLEL=4
+Environment=OLLAMA_KEEP_ALIVE=30m
+Environment=OLLAMA_MAX_LOADED_MODELS=3
+Environment=OLLAMA_NOHISTORY=1
+ExecStart=/usr/local/bin/ollama serve
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+ReadWritePaths=/var/lib/cs3-ollama
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+SystemCallFilter=@system-service
+LockPersonality=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=false
+
+[Install]
+WantedBy=multi-user.target

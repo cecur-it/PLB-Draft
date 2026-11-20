@@ -1,0 +1,127 @@
+# Traces: CONTRACT section 2 (fluentd-1/fluentd-2, 24224 mTLS in, 24231 metrics, buffer volumes), fluentd/RUNTIME.md (K8s).
+{{- if .Values.fluentd.enabled }}
+{{- $fd := .Values.fluentd }}
+{{- $env := dict
+  "FLUENTD_LOG_LEVEL" $fd.logLevel
+  "FLUENTD_WORKERS" $fd.workers
+  "FLUENTD_OS_BUFFER_LIMIT" $fd.osBufferLimit
+  "OPENSEARCH_URL" "https://opensearch:9200"
+  "OPENSEARCH_USER" .Values.config.opensearchUser
+  "LLM_GATEWAY_URL" "https://llm-gateway:9101"
+  "LLM_TRIAGE_VENDETTA_SEVERITY_REGEX" $fd.vendettaSeverityRegex
+  "LLM_TRIAGE_ERROW_SEVERITY_REGEX" $fd.errowSeverityRegex
+  "ERROW_FEEDBACK_URL" "http://errow-feedback:9102/errow-finding"
+  "ERROW_FEEDBACK_LIVE" .Values.config.feedbackLive
+  "ERROW_FEEDBACK_SEVERITY_REGEX" $fd.feedbackSeverityRegex
+  "ERROW_FEEDBACK_AR_COMMAND" .Values.config.feedbackArCommand
+  "VENDETTA_EXECD_AGENT_REGEX" $fd.vendettaExecdAgentRegex
+  "VENDETTA_API_URL" "https://vendetta-manager:55000"
+  "VENDETTA_API_USER" .Values.config.vendettaApiUser
+  "CS3_AGGREGATOR_LEGS" $fd.aggregatorLegs
+  "CS3_ESOC_URL" $fd.esocUrl
+  "CS3_ESOC_TOKEN_FILE" $fd.esocTokenFile
+  "CS3_SIEM_URL" $fd.siemUrl
+  "CS3_SIEM_TOKEN_FILE" $fd.siemTokenFile
+  "CS3_SIEM_AUTH_SCHEME" $fd.siemAuthScheme
+  "ERROW_CLOUD_ENABLED" .Values.config.errowCloudEnabled
+  "ERROW_CLOUD_URL" .Values.config.errowCloudUrl }}
+{{- range $n := list "1" "2" }}
+{{- $name := printf "fluentd-%s" $n }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+{{ include "vs.labels" (dict "root" $ "component" $name) | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" $ "component" $name) | indent 4 }}
+  ports:
+    - {name: forward, port: 24224, targetPort: forward}
+    - {name: metrics, port: 24231, targetPort: metrics}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+{{ include "vs.labels" (dict "root" $ "component" $name) | indent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: {{ if $fd.hpa.enabled }}{{ $fd.hpa.minReplicas }}{{ else }}1{{ end }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" $ "component" $name) | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" $ "component" $name) | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" $) | indent 6 }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 999) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" $ "cfg" $fd "component" $name "spread" true) | indent 6 }}
+      containers:
+        - name: fluentd
+          image: {{ include "vs.image" (dict "root" $ "img" $.Values.images.fluentd) }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.profileEnv" $ | indent 12 }}
+            - {name: FLUENTD_NODE_ID, value: {{ $n | quote }}}
+{{ include "vs.env" $env | indent 12 }}
+          ports:
+            - {name: forward, containerPort: 24224}
+            - {name: metrics, containerPort: 24231}
+            - {name: monitor, containerPort: 24220}
+          startupProbe:
+            exec:
+              command: {{ include "vs.fluentdProbeCmd" . }}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: {{ include "vs.fluentdProbeCmd" . }}
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          livenessProbe:
+            exec:
+              command: {{ include "vs.fluentdProbeCmd" . }}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 6
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $fd.resources | indent 12 }}
+          volumeMounts:
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: legs, mountPath: /run/cs3-legs, readOnly: true}
+            - {name: buffer, mountPath: /var/log/fluentd}
+            - {name: enabled, mountPath: /fluentd/etc/enabled.d}
+            - {name: run, mountPath: /run/fluentd}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+{{ include "vs.pkiVolume" (dict "root" $ "certs" (list (dict "svc" $name))) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" $ "names" (list "opensearch_admin_password" "llm_gateway_token" "feedback_webhook_token" "errow_api_token" "vendetta_api_password")) | indent 8 }}
+        - name: legs
+          secret:
+            secretName: {{ $.Values.secrets.legsSecret }}
+            optional: true
+            defaultMode: 0440
+        - name: enabled
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" $ "name" "buffer" "component" $name "size" $fd.persistence.size "class" $fd.persistence.storageClass) | indent 4 }}
+{{- end }}
+{{- end }}

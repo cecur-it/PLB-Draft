@@ -1,0 +1,34 @@
+# Traces: PROMPT section 1 Tier 3 (air-gapped deployment); CONTRACT section 8 (errow sandbox tarball, offline model bundle).
+# Errow loads the Kali sandbox image into errow-dind from /bundle/errow-sandbox.tar (docker save output); the PVC errow-bundle holds that file.
+# The images: transformer does not rewrite environment values, so the sandbox reference is patched here to the internal registry.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow
+spec:
+  template:
+    spec:
+      containers:
+        - name: errow
+          env:
+            - {name: ERROW_SANDBOX_IMAGE, value: "registry.airgap.local:5000/vendetta-stack/errow-sandbox:1.0.0"}
+            - {name: ERROW_SANDBOX_IMAGE_TAR, value: /bundle/errow-sandbox.tar}
+          volumeMounts:
+            - {name: bundle, mountPath: /bundle, readOnly: true}
+      volumes:
+        - name: bundle
+          persistentVolumeClaim:
+            claimName: errow-bundle
+            readOnly: true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-mcp
+spec:
+  template:
+    spec:
+      containers:
+        - name: mcp
+          env:
+            - {name: errow_IMAGE, value: "registry.airgap.local:5000/vendetta-stack/errow-sandbox:1.0.0"}

@@ -1,0 +1,41 @@
+# Traces: PROMPT section 1 Tier 3 (dev cluster, single node: kind / k3d / minikube); CONTRACT section 2 (volumes).
+# One node: every shared volume is ReadWriteOnce (all pods land on the same node), OpenSearch and the LLM gateway run one replica,
+# Ollama serves on CPU and volumes are sized for a laptop. Build the base first: kubernetes/kustomize/render-base.sh --write
+#   kustomize build kubernetes/kustomize/overlays/dev | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: opensearch-single-node.yaml
+  - path: opensearch-init-single-node.yaml
+  - path: ollama-cpu.yaml
+  - path: delete-opensearch-pdb.yaml
+  - path: delete-gateway-pdb.yaml
+  - target: {kind: StatefulSet, name: llm-gateway}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 1}
+  - target: {kind: PersistentVolumeClaim}
+    patch: |-
+      - {op: replace, path: /spec/accessModes/0, value: ReadWriteOnce}
+  - target: {kind: PersistentVolumeClaim, name: errow-runs}
+    patch: |-
+      - {op: replace, path: /spec/resources/requests/storage, value: 5Gi}
+  - target: {kind: PersistentVolumeClaim, name: errow-dind-data}
+    patch: |-
+      - {op: replace, path: /spec/resources/requests/storage, value: 20Gi}
+  - target: {kind: PersistentVolumeClaim, name: opensearch-snapshots}
+    patch: |-
+      - {op: replace, path: /spec/resources/requests/storage, value: 10Gi}
+  - target: {kind: StatefulSet, name: opensearch}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 20Gi}
+  - target: {kind: StatefulSet, name: "fluentd-.*"}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 5Gi}
+  - target: {kind: StatefulSet, name: prometheus}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 5Gi}
+  - target: {kind: StatefulSet, name: ollama}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 100Gi}

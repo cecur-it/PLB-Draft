@@ -1,0 +1,231 @@
+{
+  "uid": "cs3-pipeline-health",
+  "title": "Vendetta Stack / Pipeline health",
+  "description": "Fluent Bit edge collector and Fluentd aggregators: throughput, retries, drops, buffers, dead letters. Metrics: fluentbit_* (v2 endpoint), fluentd_output_status_*, cs3_pipeline_*.",
+  "tags": ["vendetta-stack", "pipeline", "fluent-bit", "fluentd"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "timezone": "utc",
+  "time": {"from": "now-6h", "to": "now"},
+  "annotations": {"list": []},
+  "links": [
+    {"title": "LLM SLO", "type": "link", "url": "/d/cs3-llm-slo", "icon": "dashboard", "targetBlank": false},
+    {"title": "Vendetta overview", "type": "link", "url": "/d/cs3-vendetta-overview", "icon": "dashboard", "targetBlank": false},
+    {"title": "Errow offense", "type": "link", "url": "/d/cs3-errow-offense", "icon": "dashboard", "targetBlank": false}
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "node", "label": "Fluentd node", "type": "query", "multi": true, "includeAll": true, "allValue": ".*", "refresh": 2, "sort": 1,
+        "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+        "definition": "label_values(fluentd_output_status_emit_records, node)",
+        "query": {"query": "label_values(fluentd_output_status_emit_records, node)", "refId": "node"},
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      },
+      {
+        "name": "fbout", "label": "Fluent Bit output", "type": "query", "multi": true, "includeAll": true, "allValue": ".*", "refresh": 2, "sort": 1,
+        "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+        "definition": "label_values(fluentbit_output_proc_records_total, name)",
+        "query": {"query": "label_values(fluentbit_output_proc_records_total, name)", "refId": "fbout"},
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {"id": 1, "type": "row", "title": "Edge: Fluent Bit", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "panels": []},
+    {
+      "id": 2, "type": "stat", "title": "Fluent Bit scrape", "description": "up{job=\"fluent-bit\"}",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red", "index": 0}, "1": {"text": "UP", "color": "green", "index": 1}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto", "justifyMode": "center"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "up{job=\"fluent-bit\"}", "legendFormat": "{{instance}}", "instant": true}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Records in (all inputs)", "description": "Sum of fluentbit_input_records_total across every input alias.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(fluentbit_input_records_total[$__rate_interval]))"}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Dropped records (1h)", "description": "fluentbit_output_dropped_records_total: data loss when above 0.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(fluentbit_output_dropped_records_total[1h])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Chunks that exhausted retries (1h)", "description": "fluentbit_output_retries_failed_total: chunks discarded after Retry_Limit.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(fluentbit_output_retries_failed_total[1h])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Input records/s by input", "description": "One series per input alias (errow_*_tail, vendetta_alerts_tail, gateway_events_http, edge_forward_in, ...).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (rate(fluentbit_input_records_total[$__rate_interval]))", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Output records/s by output", "description": "fluentd_forward = edge to Fluentd; console_ingest, esoc_otlp, siem_http = optional legs; ollama_safety_file = local-only sink.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (rate(fluentbit_output_proc_records_total{name=~\"$fbout\"}[$__rate_interval]))", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Output retries and failed retries", "description": "Retries/s per output; failed = chunks discarded after Retry_Limit.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": [{"matcher": {"id": "byRegexp", "options": "failed .*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]}]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (rate(fluentbit_output_retries_total{name=~\"$fbout\"}[$__rate_interval]))", "legendFormat": "retry {{name}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (rate(fluentbit_output_retries_failed_total{name=~\"$fbout\"}[$__rate_interval]))", "legendFormat": "failed {{name}}"}
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Output chunk capacity left", "description": "fluentbit_output_chunk_available_capacity_percent (alert below 20%).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": {"mode": "line"}}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "transparent", "value": 20}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "asc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "min by (name) (fluentbit_output_chunk_available_capacity_percent{name=~\"$fbout\"})", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Filesystem storage chunks", "description": "storage.type filesystem: chunks on disk, in memory (up) and only on disk (down = backlog).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(fluentbit_storage_fs_chunks_up)", "legendFormat": "fs chunks up (memory)"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(fluentbit_storage_fs_chunks_down)", "legendFormat": "fs chunks down (disk only)"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(fluentbit_storage_fs_chunks)", "legendFormat": "fs chunks total"}
+      ]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Leaky-bucket throttled records/s", "description": "fluentbit_filter_drop_records_total{name=\"leaky_bucket_noisy\"}: noisy host tags above CS3_EPS_LIMIT (default 500 events/s, the Vendetta leaky-bucket events_per_second). Vendetta alerts are never throttled.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 21},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(fluentbit_filter_drop_records_total{name=\"leaky_bucket_noisy\"}[$__rate_interval]))", "legendFormat": "throttled"}]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Inputs paused (storage over limit)", "description": "fluentbit_input_storage_overlimit = 1 means pause_on_chunks_overlimit has paused that input.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 21},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 1, "custom": {"lineWidth": 2, "fillOpacity": 20, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (name) (fluentbit_input_storage_overlimit) > 0", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Input memory buffers", "description": "fluentbit_input_storage_memory_bytes per input (bounded by Mem_Buf_Limit).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 21},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (fluentbit_input_storage_memory_bytes)", "legendFormat": "{{name}}"}]
+    },
+    {"id": 14, "type": "row", "title": "Aggregation: Fluentd", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 29}, "panels": []},
+    {
+      "id": 15, "type": "stat", "title": "Fluentd scrape", "description": "up{job=\"fluentd\"} per node (active-active: one node down is tolerated).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 30},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red", "index": 0}, "1": {"text": "UP", "color": "green", "index": 1}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "up{job=\"fluentd\"}", "legendFormat": "{{node}}", "instant": true}]
+    },
+    {
+      "id": 16, "type": "stat", "title": "Records emitted to OpenSearch", "description": "rate of fluentd_output_status_emit_records over the opensearch* outputs.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 30},
+      "fieldConfig": {"defaults": {"unit": "ops", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(fluentd_output_status_emit_records{plugin_id=~\"opensearch.*\",node=~\"$node\"}[$__rate_interval]))"}]
+    },
+    {
+      "id": 17, "type": "stat", "title": "Dead-letter + unrouted events (1h)", "description": "cs3_pipeline_error_events_total + cs3_pipeline_unrouted_events_total (files under /var/log/fluentd/dead-letter).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 30},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "(sum(increase(cs3_pipeline_error_events_total{node=~\"$node\"}[1h])) or vector(0)) + (sum(increase(cs3_pipeline_unrouted_events_total{node=~\"$node\"}[1h])) or vector(0))", "instant": true}]
+    },
+    {
+      "id": 18, "type": "timeseries", "title": "Emitted records/s by output", "description": "Per sink: OpenSearch families, gateway /triage, feedback webhook, Errow cloud, ESOC and SIEM legs.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 34},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (plugin_id) (rate(fluentd_output_status_emit_records{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"}[$__rate_interval]))", "legendFormat": "{{plugin_id}}"}]
+    },
+    {
+      "id": 19, "type": "timeseries", "title": "Buffer queue length", "description": "fluentd_output_status_buffer_queue_length (alert above 50 for 10 min).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 34},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (node, plugin_id) (fluentd_output_status_buffer_queue_length{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"})", "legendFormat": "{{node}} {{plugin_id}}"}]
+    },
+    {
+      "id": 20, "type": "timeseries", "title": "Buffer size on disk", "description": "fluentd_output_status_buffer_total_bytes: file buffers survive restarts.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 42},
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (node, plugin_id) (fluentd_output_status_buffer_total_bytes{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"})", "legendFormat": "{{node}} {{plugin_id}}"}]
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "Buffer space left", "description": "fluentd_output_status_buffer_available_space_ratio (percent; alert below 20%).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 42},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": {"mode": "line"}}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "transparent", "value": 20}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "asc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "min by (node, plugin_id) (fluentd_output_status_buffer_available_space_ratio{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"})", "legendFormat": "{{node}} {{plugin_id}}"}]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "Retry state and flush errors", "description": "retry_count (current backoff step) and errors per 5 minutes.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 42},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (node, plugin_id) (fluentd_output_status_retry_count{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"}) > 0", "legendFormat": "retry {{node}} {{plugin_id}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (node, plugin_id) (increase(fluentd_output_status_num_errors{plugin_id=~\"opensearch.*|http-.*|esoc-otlp|siem-ndjson\",node=~\"$node\"}[5m])) > 0", "legendFormat": "errors {{node}} {{plugin_id}}"}
+      ]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "Dead-letter and unrouted events", "description": "Events parked locally: plugin errors by tag, and tags no route accepts.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 50},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 20, "showPoints": "never", "drawStyle": "bars"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (tag) (increase(cs3_pipeline_error_events_total{node=~\"$node\"}[$__rate_interval])) > 0", "legendFormat": "error {{tag}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (tag) (increase(cs3_pipeline_unrouted_events_total{node=~\"$node\"}[$__rate_interval])) > 0", "legendFormat": "unrouted {{tag}}"}
+      ]
+    },
+    {
+      "id": 24, "type": "table", "title": "Firing alerts", "description": "ALERTS{alertstate=\"firing\"} from Prometheus (rules in prometheus/alerts.yml).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 50},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": [{"matcher": {"id": "byName", "options": "severity"}, "properties": [{"id": "mappings", "value": [{"type": "value", "options": {"critical": {"color": "red", "index": 0}, "warning": {"color": "orange", "index": 1}, "info": {"color": "blue", "index": 2}}}]}, {"id": "custom.cellOptions", "value": {"type": "color-text"}}]}]},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true}],
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"Time": true, "Value": true, "__name__": true, "alertstate": true, "stack": true}, "indexByName": {"severity": 0, "alertname": 1, "component": 2}, "renameByName": {}}}]
+    }
+  ]
+}

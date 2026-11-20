@@ -1,0 +1,197 @@
+# Traces: CONTRACT section 2 (errow, errow-dind 2376 mTLS, errow-runs/errow-ndjson), section 4.4 (gateway-only LLM), errow/RUNTIME.md (K8s).
+{{- if .Values.errow.enabled }}
+{{- $e := .Values.errow }}
+{{- $sb := $e.sandboxEnabled }}
+{{- $env := dict
+  "CS3_ROUTER_URL" "https://llm-gateway:9101"
+  "CS3_MODEL_TRIAGE" .Values.config.triageModel
+  "CS3_MODEL_REASONING" .Values.config.forensicModel
+  "CS3_MODEL_SECURITY" .Values.config.securityModel
+  "CS3_MODEL_ERROW_SECURITY" .Values.config.errowSecurityRoute
+  "OLLAMA_PRIMARY_MODEL" .Values.config.primaryModel
+  "OLLAMA_FALLBACK_MODEL" .Values.config.fallbackModel
+  "OLLAMA_SECURITY_MODEL" .Values.config.securityModel
+  "INFERENCE_MODEL_ERROW_SECURITY" .Values.config.errowSecurityModel
+  "OLLAMA_ERROW_SECURITY_MODEL" .Values.config.errowSecurityModel
+  "LLM_GATEWAY_URL" "https://llm-gateway:9101"
+  "LLM_GATEWAY_TOKEN_FILE" "/run/secrets/llm_gateway_token"
+  "CS3_APPROVAL_TOKEN_FILE" "/run/secrets/cs3_approval_token"
+  "ERROW_ALLOWED_TARGETS" (default .Values.config.errowTargets .Values.config.errowAllowedTargets)
+  "ERROW_TELEMETRY" .Values.config.errowTelemetry
+  "ERROW_CLOUD_ENABLED" .Values.config.errowCloudEnabled
+  "ERROW_CLOUD_URL" .Values.config.errowCloudUrl
+  "ERROW_SANDBOX_IMAGE" (include "vs.image" (dict "root" . "img" .Values.images.errowSandbox))
+  "ERROW_TUI_FORWARD_ADDR" (printf "fluent-bit:%v" .Values.fluentBit.tuiPort) }}
+{{- if $e.bundle.existingClaim }}
+{{- $_ := set $env "ERROW_SANDBOX_IMAGE_TAR" (printf "/bundle/%s" $e.bundle.sandboxTar) }}
+{{- end }}
+{{- if $sb }}
+{{- $_ := set $env "DOCKER_HOST" "tcp://errow-dind:2376" }}
+{{- $_ := set $env "DOCKER_TLS_VERIFY" "1" }}
+{{- $_ := set $env "DOCKER_CERT_PATH" "/certs/client" }}
+{{- end }}
+{{- if $sb }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-dind
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-dind") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "errow-dind") | indent 4 }}
+  ports:
+    - {name: docker-tls, port: 2376, targetPort: docker-tls}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-dind
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-dind") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-dind") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-dind") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      {{- with $e.dind.runtimeClassName }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: dockerd
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.dind) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - {name: DOCKER_TLS_CERTDIR, value: /certs}
+          ports:
+            - {name: docker-tls, containerPort: 2376}
+          startupProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["docker", "-H", "unix:///var/run/docker.sock", "info"]
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          securityContext:
+            privileged: true
+          resources:
+{{ toYaml $e.dind.resources | indent 12 }}
+          volumeMounts:
+            - {name: server-certs, mountPath: /certs/server, readOnly: true}
+            - {name: data, mountPath: /var/lib/docker}
+      volumes:
+{{ include "vs.pkiVolume" (dict "root" . "volume" "server-certs" "caPath" "ca.pem" "certs" (list (dict "svc" "errow-dind" "crt" "cert.pem" "key" "key.pem"))) | indent 8 }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: errow-dind-data
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+      containers:
+        - name: errow
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.errow) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["--mode", "idle"]
+          env:
+{{ include "vs.profileEnv" . | indent 12 }}
+{{ include "vs.env" $env | indent 12 }}
+          startupProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 5
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $e.runner.resources | indent 12 }}
+          volumeMounts:
+            - {name: runs, mountPath: /workspace/errow_runs}
+            - {name: ndjson, mountPath: /var/log/errow}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: home, mountPath: /home/errow}
+            - {name: tmp, mountPath: /tmp}
+            {{- if $sb }}
+            - {name: dind-client, mountPath: /certs/client, readOnly: true}
+            {{- end }}
+            {{- if $e.bundle.existingClaim }}
+            - {name: bundle, mountPath: /bundle, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+        - name: ndjson
+          persistentVolumeClaim:
+            claimName: errow-ndjson
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list)) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "llm_gateway_token" "cs3_approval_token")) | indent 8 }}
+        - name: home
+          emptyDir:
+            medium: Memory
+        - name: tmp
+          emptyDir: {}
+        {{- if $sb }}
+{{ include "vs.pkiVolume" (dict "root" . "volume" "dind-client" "caPath" "ca.pem" "certs" (list (dict "svc" "errow-dind-client" "crt" "cert.pem" "key" "key.pem"))) | indent 8 }}
+        {{- end }}
+        {{- if $e.bundle.existingClaim }}
+        - name: bundle
+          persistentVolumeClaim:
+            claimName: {{ $e.bundle.existingClaim }}
+            readOnly: true
+        {{- end }}
+{{- end }}

@@ -1,0 +1,46 @@
+CECUR-IT CS3 Platform — Third-Party Notices and Licensing Boundaries
+
+The original code in this repository is licensed under the MIT License (see LICENSE).
+The MIT License does NOT apply to the third-party materials listed below, which keep
+their own licenses. Nothing in this repository relicenses them.
+
+1. demo/demo-100226/spec-v4.14.7.yaml — Wazuh API REST specification
+   Source:     https://github.com/wazuh/wazuh (tag v4.14.7)
+   Copyright:  (C) 2015, Wazuh Inc.
+   License:    GNU General Public License, version 2 (GPL-2.0)
+               https://github.com/wazuh/wazuh/blob/v4.14.7/LICENSE
+   Scope:      This file is a reference copy of the specification only. It is kept as a
+               separate, unmodified data file; it is not compiled into, linked with, or
+               imported by the console (server/ or src/) and is excluded from the
+               container build context (demo/demo-100226/.dockerignore).
+               Redistribution of this file must retain the GPL-2.0 notice above.
+
+2. demo/demo-100226/bbot-stable/ — BBOT (Black Lantern Security)
+   License:    GNU Affero General Public License, version 3 (AGPL-3.0)
+               See demo/demo-100226/bbot-stable/LICENSE.
+   Scope:      Vendored reference tree, excluded from the console image and build.
+
+3. errow/ — errow and errow-agent (offensive security engine, sandboxes, knowledge packs)
+   License:    Apache License, Version 2.0
+               Copyright (c) 2024-2026 CECUR-IT and the errow contributors.
+               See errow/LICENSE.md.
+   Scope:      Engine, CLI and container definitions (errow/, errow/containers/) are
+               Apache-2.0. The offensive knowledge packs in errow/skills/ are Apache-2.0
+               WITH use restrictions (errow/LICENSE.md, Section 4): authorized security
+               testing only; the responsible-disclosure and acceptable-use notices in
+               that tree must be retained. The errow name and brand assets are reserved
+               (errow/LICENSE.md, Section 5). The tree is excluded from the console image
+               and build; it is staged separately for the airgap bundle.
+
+4. Fonts — Inter, Space Grotesk, JetBrains Mono
+   Bundled locally through the @fontsource-variable/* npm packages (no Google Fonts
+   requests at runtime). License: SIL Open Font License 1.1 (OFL-1.1).
+
+5. NIST SP 800-53 Rev. 5 and SP 800-171 Rev. 3
+   The PDF copies were removed from this repository. Obtain the publications from
+   https://csrc.nist.gov/publications. They are U.S. Government works and are
+   referenced, not redistributed, here.
+
+Dependencies installed through npm (demo/demo-100226/package-lock.json) retain their
+own licenses; use `npm ls --all` or an SBOM (see .github/workflows/release.yml) for the
+full list.

@@ -1,0 +1,134 @@
+{
+  "index_patterns": ["vendetta-alerts-*"],
+  "priority": 200,
+  "version": 1,
+  "_meta": {
+    "description": "Normalized Vendetta alert (CONTRACT s4.1) - rollover family vendetta-alerts-000001..N behind write alias vendetta-alerts. index.default_pipeline=vendetta-alerts-router dispatches raw SARIF results to sarif-to-vendetta-alert and AIIncidentAnalysis records to aiincident-to-vendetta-alert, because OpenSearch 2.17 ignores the _bulk ?pipeline= parameter for update+doc_as_upsert; native alerts pass through unchanged.",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 3,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 2000,
+      "index.mapping.ignore_malformed": true,
+      "index.default_pipeline": "vendetta-alerts-router",
+      "index.plugins.index_state_management.rollover_alias": "vendetta-alerts"
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "numeric_detection": false,
+      "dynamic_templates": [
+        {
+          "free_text_strings": {
+            "match_mapping_type": "string",
+            "match_pattern": "regex",
+            "match": "^(message|msg|full_log|.*_(message|description|summary|output|log))$",
+            "mapping": { "type": "text", "norms": false }
+          }
+        },
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "id": { "type": "keyword" },
+        "source": {
+          "properties": {
+            "system": { "type": "keyword" },
+            "stream": { "type": "keyword" }
+          }
+        },
+        "rule": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "level": { "type": "integer" },
+            "description": {
+              "type": "text",
+              "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } }
+            },
+            "groups": { "type": "keyword" },
+            "mitre": {
+              "properties": {
+                "id": { "type": "keyword" },
+                "tactic": { "type": "keyword" },
+                "technique": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "agent": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword" },
+            "ip": { "type": "ip", "ignore_malformed": true }
+          }
+        },
+        "manager": {
+          "properties": {
+            "name": { "type": "keyword" }
+          }
+        },
+        "location": { "type": "keyword", "ignore_above": 1024 },
+        "full_log": { "type": "text", "norms": false },
+        "severity": { "type": "keyword" },
+        "mitre": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "tactic": { "type": "keyword" },
+            "technique": { "type": "keyword" }
+          }
+        },
+        "root_cause": { "type": "text", "norms": false },
+        "recommended_action": { "type": "text", "norms": false },
+        "ai": {
+          "properties": {
+            "engine": { "type": "keyword" },
+            "role": { "type": "keyword" },
+            "confidence": { "type": "float" },
+            "verdict": { "type": "keyword" },
+            "fallback": { "type": "boolean" },
+            "fallback_reason": { "type": "keyword" },
+            "request_id": { "type": "keyword" },
+            "needs_verification": { "type": "boolean" },
+            "summary": { "type": "text", "norms": false },
+            "analyzed_at": { "type": "date" },
+            "cost": {
+              "properties": {
+                "gpu_seconds": { "type": "double" }
+              }
+            }
+          }
+        },
+        "errow": {
+          "properties": {
+            "run": { "type": "keyword" },
+            "finding_id": { "type": "keyword" },
+            "cwe": { "type": "keyword" },
+            "cve": { "type": "keyword" },
+            "owasp": { "type": "keyword" },
+            "cvss": { "type": "float" },
+            "confidence": { "type": "keyword" },
+            "target": { "type": "keyword" },
+            "endpoint": { "type": "keyword" },
+            "sarif_rule_id": { "type": "keyword" },
+            "fingerprint": { "type": "keyword" },
+            "triggered": { "type": "boolean" }
+          }
+        },
+        "ingest_error": {
+          "type": "text",
+          "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } }
+        }
+      }
+    }
+  }
+}

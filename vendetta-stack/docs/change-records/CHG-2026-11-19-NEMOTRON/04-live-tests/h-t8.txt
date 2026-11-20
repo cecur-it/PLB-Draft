@@ -1,0 +1,13 @@
+HTTP/1.1 403 Forbidden
+X-CS3-Model: nemotron-3-nano:30b
+X-CS3-Task-Class: security
+X-CS3-Degraded-Model-Fallback: false
+X-CS3-Attempted-Fallbacks: 
+Content-Type: application/json; charset=utf-8
+X-Request-Id: d9514088e6bd443fa0da4a3b98d6d1d2
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+Content-Length: 222
+Date: Thu, 19 Nov 2026 07:42:14 GMT
+Server: Python/3.12 aiohttp/3.14.5
+

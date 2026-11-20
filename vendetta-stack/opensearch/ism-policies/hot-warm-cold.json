@@ -1,0 +1,53 @@
+{
+  "policy": {
+    "description": "Tiered lifecycle for daily indices (no rollover - indices are already time-bucketed): hot 7d, warm (box_type=warm, force-merged) until 30d, cold (box_type=cold, write-blocked) until 365d, then delete. Auto-attached to errow-* and cs3-ai-inference-* daily indices (priority 10) and to any vendetta-alerts-* index not claimed by rollover-40gb (priority 50). Requires nodes started with NODE_BOX_TYPE=warm|cold to actually move data; without them shards stay on the hot nodes.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          { "index_priority": { "priority": 100 } }
+        ],
+        "transitions": [
+          { "state_name": "warm", "conditions": { "min_index_age": "7d" } }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [
+          { "index_priority": { "priority": 50 } },
+          { "allocation": { "require": { "box_type": "warm" }, "wait_for": false } },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "10m" },
+            "force_merge": { "max_num_segments": 1 }
+          }
+        ],
+        "transitions": [
+          { "state_name": "cold", "conditions": { "min_index_age": "30d" } }
+        ]
+      },
+      {
+        "name": "cold",
+        "actions": [
+          { "index_priority": { "priority": 10 } },
+          { "read_only": {} },
+          { "allocation": { "require": { "box_type": "cold" }, "wait_for": false } }
+        ],
+        "transitions": [
+          { "state_name": "delete", "conditions": { "min_index_age": "365d" } }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          { "delete": {} }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      { "index_patterns": ["vendetta-alerts-*"], "priority": 50 },
+      { "index_patterns": ["errow-*", "cs3-ai-inference-*"], "priority": 10 }
+    ]
+  }
+}

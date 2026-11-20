@@ -1,0 +1,61 @@
+# Traces: CONTRACT section 2 (HA: 3-node OpenSearch quorum, 2 Fluentd aggregators, 2 gateway replicas), PROMPT section 1 Tier 3 (PodDisruptionBudgets).
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- if gt (int .Values.opensearch.replicas) 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opensearch
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "opensearch") | indent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "opensearch") | indent 6 }}
+---
+{{- end }}
+{{- if .Values.fluentd.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fluentd
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluentd") | indent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vendetta-stack
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [fluentd-1, fluentd-2]}
+---
+{{- end }}
+{{- if and .Values.llmGateway.enabled (gt (int .Values.llmGateway.replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: llm-gateway
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "llm-gateway") | indent 6 }}
+---
+{{- end }}
+{{- if and (ne .Values.ollama.mode "none") (gt (int .Values.ollama.replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ollama
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "ollama") | indent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "ollama") | indent 6 }}
+{{- end }}
+{{- end }}

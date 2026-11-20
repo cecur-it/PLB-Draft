@@ -1,0 +1,10 @@
+# Parameter fragment for the optional qwensploit-v2:9b cybersecurity-reasoning evaluation tier (never a production route).
+# The upstream GGUF lives on the Hub (hf.co/xtools-at/...), so pull-models.sh prepends the `FROM` line and
+# `ollama create qwensploit-v2:9b` registers the alias after the blob digest has been verified.
+# Q4_K_M only: Q2 collapses on CVE detail, bf16 needs >= 32 GB VRAM. No thinking trace (Qwen3.5 hybrid turned off),
+# so the gateway never sends `think`. Hostile-input reasoning wants low temperature and a long context.
+# Traces: PROMPT §1 Tier 4 / §3, CONTRACT §10.
+PARAMETER num_ctx 32768
+PARAMETER temperature 0.15
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.05

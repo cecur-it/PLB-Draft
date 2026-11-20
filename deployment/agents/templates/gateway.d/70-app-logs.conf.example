@@ -1,0 +1,42 @@
+# Cecur CS3 gateway profile — OPTIONAL example: tail application/daemon logs into the same pipeline.
+#
+# NOT installed by install-forwarder.sh. To use it, copy to /etc/cecur/fluent-bit.d/70-app-logs.conf,
+# adjust Path and source, then `systemctl restart cecur-forwarder`. The installer only manages the
+# fragment names it ships, so a file you add here survives re-runs (it is only loaded while the
+# gateway profile is active — the edge profile does not include this directory).
+#
+# This is the Fluent Bit counterpart of Fluentd's `@type tail` + OTLP merge: plain-text lines arrive
+# as { log = "<line>" } and the shared Lua normaliser (the same one the OTLP logs use) maps them to
+# `message`, strips control characters, truncates to CS3_MESSAGE_MAX_CHARS and redacts bearer tokens
+# and password/token/secret/api_key pairs before the event can reach an AI triage prompt.
+# The host.* tag then reaches the console, the ESOC and the SIEM exactly like host.auth does.
+#
+# Variables: CS3_HOSTNAME, CS3_MESSAGE_MAX_CHARS.
+
+[INPUT]
+    Name              tail
+    Alias             cs3_app_logs
+    Tag               host.app
+    Path              /var/log/cs3/*.log
+    Path_Key          file
+    DB                /var/lib/cecur-forwarder/app-logs.db
+    Skip_Long_Lines   On
+    Read_from_Head    False
+    storage.type      filesystem
+    Mem_Buf_Limit     16MB
+    # JSON-lines logs: parse them first so each key becomes a field (the normaliser reads `message`).
+    # Uses the `json` parser from /etc/cecur/parsers.conf (installed from templates/parsers.conf):
+    # Parser          json
+
+[FILTER]
+    Name    lua
+    Match   host.app
+    Alias   cs3_app_normalize
+    script  /etc/cecur/fluent-bit.d/cs3-otlp-normalize.lua
+    call    cs3_normalize
+
+[FILTER]
+    Name    modify
+    Match   host.app
+    Add     source cs3-app
+    Add     agentName ${CS3_HOSTNAME}

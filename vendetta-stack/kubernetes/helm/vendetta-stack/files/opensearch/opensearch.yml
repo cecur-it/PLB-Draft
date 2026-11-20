@@ -1,0 +1,99 @@
+---
+# vendetta-stack OpenSearch 2.17.1 - production 3-node cluster configuration.
+# Traces: PROMPT Tier 3 (indexer); CONTRACT s2 (ports, PKI, secrets), s3 (indices/ISM);
+#         deployment/operations/opensearch-cluster.md.
+#
+# Every node runs this same file (mounted ro at
+# /usr/share/opensearch/config/opensearch.yml). Per-node values come from the
+# environment through ${VAR[:default]} substitution:
+#   NODE_NAME                           unique node name (entrypoint.sh defaults it to $HOSTNAME)
+#   NODE_BOX_TYPE                       hot | warm | cold  (default hot) -> node.attr.box_type
+#   OPENSEARCH_CLUSTER_NAME             default vendetta-stack
+#   OPENSEARCH_SEED_HOSTS               comma separated discovery hosts
+#   OPENSEARCH_INITIAL_MANAGERS         comma separated node names (first bootstrap only)
+# TLS material is read from config/certs (mount the stack pki/ dir there):
+#   opensearch.crt, opensearch.key (PKCS#8), ca.crt.
+
+cluster.name: ${OPENSEARCH_CLUSTER_NAME:vendetta-stack}
+node.name: ${NODE_NAME}
+# 3 identical master-eligible data nodes keep a quorum of 2 with no spare
+# hardware. Add dedicated warm/cold data-only nodes by overriding node.roles
+# with NODE_BOX_TYPE=warm|cold in the same file (roles: see RUNTIME.md).
+node.roles: [cluster_manager, data, ingest]
+# Hot/warm/cold tier attribute used by ISM `allocation` actions and by the
+# index templates (index.routing.allocation.require.box_type).
+node.attr.box_type: ${NODE_BOX_TYPE:hot}
+
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+http.compression: true
+http.cors.enabled: false
+
+discovery.seed_hosts: ${OPENSEARCH_SEED_HOSTS:opensearch-0.opensearch,opensearch-1.opensearch,opensearch-2.opensearch}
+# Only consulted while the cluster is bootstrapping for the first time.
+cluster.initial_cluster_manager_nodes: ${OPENSEARCH_INITIAL_MANAGERS:opensearch-0,opensearch-1,opensearch-2}
+
+bootstrap.memory_lock: true
+path.data: /usr/share/opensearch/data
+path.logs: /usr/share/opensearch/logs
+# Filesystem snapshot repository (apply.sh registers `vendetta-snapshots`).
+# Must be a volume shared by all nodes (NFS / RWX PVC) in a multi-node cluster.
+path.repo: [/usr/share/opensearch/snapshots]
+
+# Tier-aware allocation. box_type awareness keeps copies of non-tiered
+# (system) indices on different tiers; tier-pinned indices are constrained by
+# index.routing.allocation.require.box_type instead.
+cluster.routing.allocation.awareness.attributes: box_type
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: 85%
+cluster.routing.allocation.disk.watermark.high: 90%
+cluster.routing.allocation.disk.watermark.flood_stage: 95%
+
+# Only the stack's index families (CONTRACT s3), system indices and the
+# security audit log may be created implicitly. The bare alias name
+# `vendetta-alerts` is deliberately NOT allowed: a write to it before
+# apply.sh ran would otherwise create a concrete index with the alias name.
+action.auto_create_index: "+vendetta-alerts-*,+errow-*,+cs3-ai-*,+security-auditlog-*,+.*,-*"
+action.destructive_requires_name: true
+
+# Reports the real OpenSearch version. Set true only for clients that
+# insist on an Elasticsearch 7.10.2 handshake (legacy Beats / Wazuh tooling).
+compatibility.override_main_response_version: false
+
+# ---- Security plugin: TLS on transport and HTTP, internal user database ----
+plugins.security.ssl.transport.pemcert_filepath: certs/opensearch.crt
+plugins.security.ssl.transport.pemkey_filepath: certs/opensearch.key
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/ca.crt
+plugins.security.ssl.transport.enforce_hostname_verification: false
+plugins.security.ssl.transport.resolve_hostname: false
+plugins.security.ssl.transport.enabled_protocols: [TLSv1.3, TLSv1.2]
+
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/opensearch.crt
+plugins.security.ssl.http.pemkey_filepath: certs/opensearch.key
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/ca.crt
+plugins.security.ssl.http.clientauth_mode: OPTIONAL
+plugins.security.ssl.http.enabled_protocols: [TLSv1.3, TLSv1.2]
+
+# Node certificates: CN=opensearch* (the pki/ `opensearch` service cert).
+plugins.security.nodes_dn:
+  - 'CN=opensearch*'
+# Client certificate allowed to run securityadmin.sh / the security REST API.
+plugins.security.authcz.admin_dn:
+  - 'CN=vendetta-admin,O=vendetta-stack'
+
+# First start loads config/opensearch-security/*.yml (rendered by
+# entrypoint.sh from opensearch/security/) into the security index.
+plugins.security.allow_default_init_securityindex: true
+plugins.security.allow_unsafe_democertificates: false
+plugins.security.restapi.roles_enabled: [all_access, security_rest_api_access]
+plugins.security.restapi.password_min_length: 12
+plugins.security.restapi.password_score_based_validation_strength: strong
+plugins.security.system_indices.enabled: true
+plugins.security.enable_snapshot_restore_privilege: true
+plugins.security.check_snapshot_restore_write_privileges: true
+plugins.security.cache.ttl_minutes: 60
+
+# Audit categories / noise filters live in security/audit.yml.
+plugins.security.audit.type: internal_opensearch

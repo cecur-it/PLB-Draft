@@ -1,0 +1,17 @@
+{
+  "http://scan-target.vendetta.lab": {
+    "target": "http://scan-target.vendetta.lab",
+    "written_at": "2026-11-12T09:12:00+00:00",
+    "written_by": "agent-root-1",
+    "content": "# Threat model\n\nSpoofing, tampering and information disclosure are the dominant risks on the search and orders APIs.",
+    "amendments": [
+      {"at": "2026-11-12T09:45:00+00:00", "by": "agent-sub-2", "content": "Added: tenant isolation is enforced only in the UI layer."}
+    ]
+  },
+  "scan-target.vendetta.lab:8443": {
+    "target": "scan-target.vendetta.lab:8443",
+    "written_at": "2026-11-12T09:30:00+00:00",
+    "written_by": "agent-sub-2",
+    "content": "Admin console on 8443 is reachable only from the lab network."
+  }
+}

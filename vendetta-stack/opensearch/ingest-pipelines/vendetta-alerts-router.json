@@ -1,0 +1,27 @@
+{
+  "description": "index.default_pipeline of vendetta-alerts-*. OpenSearch 2.17 ignores the _bulk ?pipeline= parameter for update + doc_as_upsert actions (only the index default pipeline runs on the upserted doc), so this router picks the transform by record shape: a raw SARIF result (ruleId) -> sarif-to-vendetta-alert; an AIIncidentAnalysis / cs3.ai.inference event (severityAssessment, top level or under analysis) -> aiincident-to-vendetta-alert; native Vendetta alerts and partial updates (rule is an object, no ruleId / severityAssessment) pass through untouched. An explicit ?pipeline= on an index/create request overrides this default. On failure the document is kept and ingest_error is set.",
+  "processors": [
+    {
+      "pipeline": {
+        "description": "Raw SARIF result shipped by errow-shipper (CONTRACT s15).",
+        "name": "sarif-to-vendetta-alert",
+        "if": "ctx.ruleId != null"
+      }
+    },
+    {
+      "pipeline": {
+        "description": "AIIncidentAnalysis (CONTRACT s4.2), bare or wrapped in a cs3.ai.inference event.",
+        "name": "aiincident-to-vendetta-alert",
+        "if": "(ctx.analysis instanceof Map && ctx.analysis.severityAssessment != null) || (ctx.severityAssessment != null && !(ctx.rule instanceof Map))"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "field": "ingest_error",
+        "value": "vendetta-alerts-router: {{{_ingest.on_failure_message}}} (processor: {{{_ingest.on_failure_processor_type}}})"
+      }
+    }
+  ]
+}

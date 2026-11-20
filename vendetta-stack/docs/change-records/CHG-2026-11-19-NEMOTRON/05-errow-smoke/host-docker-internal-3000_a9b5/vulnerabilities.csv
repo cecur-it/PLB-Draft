@@ -1,0 +1,4 @@
+id,title,severity,timestamp,file
+vuln-0001,SQL Injection in Product Search,CRITICAL,2026-11-19 10:37:16 UTC,vulnerabilities/vuln-0001.md
+vuln-0002,Authentication Bypass via SQL Injection,CRITICAL,2026-11-19 10:37:34 UTC,vulnerabilities/vuln-0002.md
+vuln-0003,File Disclosure via Path Traversal,HIGH,2026-11-19 10:37:49 UTC,vulnerabilities/vuln-0003.md

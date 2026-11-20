@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+X-CS3-Model: qwensploit-v2:9b
+X-CS3-Task-Class: security
+X-CS3-Degraded-Model-Fallback: false
+X-CS3-Attempted-Fallbacks: 
+Content-Type: application/json; charset=utf-8
+X-Request-Id: 23096956615c48c597f91d72bf26281d
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+Content-Length: 1644
+Date: Thu, 19 Nov 2026 08:19:49 GMT
+Server: Python/3.15 aiohttp/3.14.5
+

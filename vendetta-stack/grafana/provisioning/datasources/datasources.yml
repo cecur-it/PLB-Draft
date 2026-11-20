@@ -1,0 +1,119 @@
+# Traces: PROMPT §5 Observability (Grafana datasources), CONTRACT §2 (grafana 3000), §3 (index prefixes), §8.11
+# Grafana 10.4.19. Air-gap safe: only BUILT-IN datasource types (prometheus, alertmanager, elasticsearch); no plugin is downloaded.
+# OpenSearch 2.x is queried through the built-in `elasticsearch` type (esVersion 7.10.0 is the last API level OpenSearch keeps).
+# The ES datasource binds to ONE index pattern, hence one datasource per index family used by the dashboards.
+# Secrets are read from files at provisioning time ($__file{}), never stored in this file:
+#   /run/secrets/opensearch_admin_password   /pki/ca.crt (trust anchor for https://opensearch:9200)
+# Mount: this directory at /etc/grafana/provisioning/datasources (ro).
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: cs3-prometheus
+    type: prometheus
+    access: proxy
+    orgId: 1
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      manageAlerts: false
+      prometheusType: Prometheus
+      prometheusVersion: 2.55.1
+
+  - name: Alertmanager
+    uid: cs3-alertmanager
+    type: alertmanager
+    access: proxy
+    orgId: 1
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false
+
+  - &opensearch
+    name: OpenSearch Vendetta Alerts
+    uid: cs3-os-vendetta-alerts
+    type: elasticsearch
+    access: proxy
+    orgId: 1
+    url: https://opensearch:9200
+    basicAuth: true
+    basicAuthUser: admin
+    editable: false
+    jsonData: &opensearch_json
+      index: "vendetta-alerts-*"
+      timeField: "@timestamp"
+      esVersion: "7.10.0"
+      maxConcurrentShardRequests: 5
+      timeInterval: 10s
+      logMessageField: rule.description
+      logLevelField: severity
+      tlsAuthWithCACert: true
+      serverName: opensearch
+    secureJsonData: &opensearch_secure
+      basicAuthPassword: $__file{/run/secrets/opensearch_admin_password}
+      tlsCACert: $__file{/pki/ca.crt}
+
+  - <<: *opensearch
+    name: OpenSearch Errow Findings
+    uid: cs3-os-errow-findings
+    jsonData:
+      <<: *opensearch_json
+      index: "errow-findings-*"
+      logMessageField: message.text
+      logLevelField: level
+    secureJsonData: *opensearch_secure
+
+  - <<: *opensearch
+    name: OpenSearch Errow Runs
+    uid: cs3-os-errow-runs
+    jsonData:
+      <<: *opensearch_json
+      index: "errow-runs-*"
+      logMessageField: run_name
+      logLevelField: status
+    secureJsonData: *opensearch_secure
+
+  - <<: *opensearch
+    name: OpenSearch Errow LLM Logs
+    uid: cs3-os-errow-llm
+    jsonData:
+      <<: *opensearch_json
+      index: "errow-llm-logs-*"
+      logMessageField: message
+      logLevelField: outcome
+    secureJsonData: *opensearch_secure
+
+  - <<: *opensearch
+    name: OpenSearch Errow MCP
+    uid: cs3-os-errow-mcp
+    jsonData:
+      <<: *opensearch_json
+      index: "errow-mcp-*"
+      logMessageField: rationale
+      logLevelField: decision
+    secureJsonData: *opensearch_secure
+
+  - <<: *opensearch
+    name: OpenSearch AI Inference
+    uid: cs3-os-ai-inference
+    jsonData:
+      <<: *opensearch_json
+      index: "cs3-ai-inference-*"
+      logMessageField: analysis.triageSummary
+      logLevelField: analysis.severityAssessment
+    secureJsonData: *opensearch_secure
+
+  - <<: *opensearch
+    name: OpenSearch AI Audit
+    uid: cs3-os-ai-audit
+    jsonData:
+      <<: *opensearch_json
+      index: "cs3-ai-audit-*"
+      logMessageField: rationale
+      logLevelField: event_type
+    secureJsonData: *opensearch_secure

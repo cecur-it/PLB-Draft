@@ -1,0 +1,34 @@
+---
+# Security plugin dynamic configuration (loaded into the security index on the
+# first start). Traces: CONTRACT s2 (basic-auth on 9200). Only the internal
+# user database over HTTP basic is enabled; anonymous access, proxy, JWT, LDAP
+# and Kerberos are off. Dashboards multi-tenancy is off: the SOC works in one
+# global space so saved objects import without a tenant header.
+_meta:
+  type: "config"
+  config_version: 2
+
+config:
+  dynamic:
+    http:
+      anonymous_auth_enabled: false
+      xff:
+        enabled: false
+    authc:
+      basic_internal_auth_domain:
+        description: "Authenticate via HTTP Basic against the internal users database"
+        http_enabled: true
+        transport_enabled: true
+        order: 0
+        http_authenticator:
+          type: basic
+          challenge: true
+        authentication_backend:
+          type: intern
+    authz: {}
+    kibana:
+      multitenancy_enabled: false
+      server_username: kibanaserver
+      index: .kibana
+    hosts_resolver_mode: ip-only
+    do_not_fail_on_forbidden: false

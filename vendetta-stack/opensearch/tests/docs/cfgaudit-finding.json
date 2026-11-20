@@ -1,0 +1,61 @@
+{
+  "@timestamp": "2026-01-01T00:00:00.000Z",
+  "asset": {
+    "id": "ae45df13fd6457a3d7984fa87bd87b83e86007c68ed8c5bf8773050ee6e60e5d",
+    "name": "edge-rtr1",
+    "vendor": "ios"
+  },
+  "config": {
+    "name": "edge-rtr1.cfg",
+    "sha256": "122a08a02be97a3a92b50e11a39d7de2ee779fd44fa7411271ee2580bf82d601"
+  },
+  "control": {
+    "frameworks": [
+      {
+        "mapping": "indicative",
+        "name": "NIST SP 800-53",
+        "reference": "AC-6"
+      },
+      {
+        "mapping": "indicative",
+        "name": "NIST SP 800-53",
+        "reference": "CM-7"
+      },
+      {
+        "mapping": "related",
+        "name": "DISA STIG",
+        "reference": "V-215842 (CISC-ND-001140)"
+      },
+      {
+        "mapping": "direct",
+        "name": "CIS",
+        "reference": "1.5.4"
+      }
+    ],
+    "id": "IOS-005",
+    "title": "SNMP read-write community configured"
+  },
+  "doc_id": "a8431e7e4d9f5744fb6a478f495fa651d2d0527b98a3e0b0f7aacf3cdce157a5",
+  "evidence": {
+    "items": [
+      "snmp-server community [REDACTED]"
+    ],
+    "sha256": "ee01afacc7b7ba282fdcfddae276b2c7b9b2ed49f4a8b6f6a5c43e572144a446"
+  },
+  "finding": {
+    "id": "a8431e7e4d9f5744fb6a478f495fa651d2d0527b98a3e0b0f7aacf3cdce157a5",
+    "key": "0b8b785b6b58885cd7a9e5a411dde7dc14faefc44d2a22908014996c04691002"
+  },
+  "record_type": "finding",
+  "remediation": "Remove RW communities or migrate to SNMPv3 with restricted views.",
+  "run": {
+    "id": "00000000-0000-4000-8000-000000000001"
+  },
+  "schema_version": "1.0",
+  "severity": "high",
+  "source": {
+    "stream": "cfgaudit.findings",
+    "system": "cfgaudit"
+  },
+  "status": "fail"
+}

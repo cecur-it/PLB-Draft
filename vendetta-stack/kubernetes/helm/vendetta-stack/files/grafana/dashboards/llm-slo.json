@@ -1,0 +1,310 @@
+{
+  "uid": "cs3-llm-slo",
+  "title": "Vendetta Stack / Sovereign LLM SLO",
+  "description": "llm-gateway and Ollama tier: triage latency SLO (p95 30 s), failover, token and GPU cost, guardrails, audit chain, spool. Metrics: llm_gateway_*, ollama_gpu_memory_util, cs3_pipeline_ai_*. OpenSearch: cs3-ai-inference-*, cs3-ai-audit-*.",
+  "tags": ["vendetta-stack", "llm", "ollama", "slo"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "timezone": "utc",
+  "time": {"from": "now-6h", "to": "now"},
+  "annotations": {"list": []},
+  "links": [
+    {"title": "Pipeline health", "type": "link", "url": "/d/cs3-pipeline-health", "icon": "dashboard", "targetBlank": false},
+    {"title": "Vendetta overview", "type": "link", "url": "/d/cs3-vendetta-overview", "icon": "dashboard", "targetBlank": false},
+    {"title": "Errow offense", "type": "link", "url": "/d/cs3-errow-offense", "icon": "dashboard", "targetBlank": false}
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "role", "label": "Role", "type": "query", "multi": true, "includeAll": true, "allValue": ".*", "refresh": 2, "sort": 1,
+        "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+        "definition": "label_values(llm_gateway_requests_total, role)",
+        "query": {"query": "label_values(llm_gateway_requests_total, role)", "refId": "role"},
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      },
+      {
+        "name": "model", "label": "Model", "type": "query", "multi": true, "includeAll": true, "allValue": ".*", "refresh": 2, "sort": 1,
+        "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+        "definition": "label_values(llm_gateway_gpu_seconds_total, model)",
+        "query": {"query": "label_values(llm_gateway_gpu_seconds_total, model)", "refId": "model"},
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {"id": 1, "type": "row", "title": "SLO and integrity", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "panels": []},
+    {
+      "id": 2, "type": "stat", "title": "p95 triage latency", "description": "histogram_quantile(0.95) of llm_gateway_triage_latency_seconds over 10 minutes. SLO: 30 s (warning alert), 60 s (critical).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 2, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 30}, {"color": "red", "value": 60}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[10m])))"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Triage within 30 s", "description": "Share of analysed records answered within the 30 s SLO over the dashboard range.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 0.95}, {"color": "green", "value": 0.99}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(llm_gateway_triage_latency_seconds_bucket{le=~\"30(\\\\.0)?\"}[$__range])) / sum(increase(llm_gateway_triage_latency_seconds_count[$__range]))", "instant": true}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Audit chain", "description": "llm_gateway_audit_chain_ok: 0 means tampering, a corrupt spool or a gap in the hash chain (AU-9 integrity incident).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "BROKEN", "color": "red", "index": 0}, "1": {"text": "INTACT", "color": "green", "index": 1}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto", "justifyMode": "center"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "min(llm_gateway_audit_chain_ok)", "instant": true}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Heuristic fallback share", "description": "Share of analysed records answered by Cecur Heuristics or a lower tier (fallback=\"true\").",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 1, "min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.1}, {"color": "red", "value": 0.5}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(llm_gateway_requests_total{fallback=\"true\"}[$__rate_interval])) / sum(rate(llm_gateway_requests_total[$__rate_interval]))"}]
+    },
+    {
+      "id": 6, "type": "stat", "title": "Queue depth", "description": "llm_gateway_queue_depth: records waiting for an inference slot (default maximum 512).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 256}, {"color": "red", "value": 480}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max(llm_gateway_queue_depth)"}]
+    },
+    {
+      "id": 7, "type": "stat", "title": "Audit spool depth", "description": "llm_gateway_spool_depth: audit/enrichment events waiting for Fluent Bit (maximum 100000).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1000}, {"color": "red", "value": 50000}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max(llm_gateway_spool_depth)"}]
+    },
+    {"id": 8, "type": "row", "title": "Latency", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5}, "panels": []},
+    {
+      "id": 9, "type": "timeseries", "title": "Triage latency quantiles", "description": "p50 / p95 / p99 of llm_gateway_triage_latency_seconds (backend time, queue wait excluded). The dashed line is the 30 s SLO.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 1, "fillOpacity": 5, "showPoints": "never", "thresholdsStyle": {"mode": "dashed"}}, "thresholds": {"mode": "absolute", "steps": [{"color": "transparent", "value": null}, {"color": "orange", "value": 30}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "histogram_quantile(0.50, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[$__rate_interval])))", "legendFormat": "p50"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[$__rate_interval])))", "legendFormat": "p95"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "histogram_quantile(0.99, sum by (le) (rate(llm_gateway_triage_latency_seconds_bucket[$__rate_interval])))", "legendFormat": "p99"}
+      ]
+    },
+    {
+      "id": 10, "type": "heatmap", "title": "Triage latency distribution", "description": "Records per latency bucket (seconds).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "fieldConfig": {"defaults": {"custom": {"hideFrom": {"legend": false, "tooltip": false, "viz": false}, "scaleDistribution": {"type": "linear"}}}, "overrides": []},
+      "options": {"calculate": false, "cellGap": 1, "color": {"mode": "scheme", "scheme": "Spectral", "scale": "exponential", "exponent": 0.5, "fill": "dark-orange", "min": 0, "reverse": false, "steps": 64}, "yAxis": {"axisPlacement": "left", "unit": "s"}, "rowsFrame": {"layout": "auto"}, "tooltip": {"show": true, "yHistogram": false}, "legend": {"show": true}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (le) (increase(llm_gateway_triage_latency_seconds_bucket[$__interval]))", "format": "heatmap", "legendFormat": "{{le}}"}]
+    },
+    {"id": 11, "type": "row", "title": "Traffic, failover and cost", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14}, "panels": []},
+    {
+      "id": 12, "type": "timeseries", "title": "Analysed records/s by role and engine", "description": "llm_gateway_requests_total{role,engine,fallback}.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (role, engine, fallback) (rate(llm_gateway_requests_total{role=~\"$role\"}[$__rate_interval]))", "legendFormat": "{{role}} / {{engine}} / fallback={{fallback}}"}]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Failover transitions/s", "description": "llm_gateway_failover_total{from,to,reason}: triage -> forensic -> heuristics cascade.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (from, to, reason) (rate(llm_gateway_failover_total[$__rate_interval])) > 0", "legendFormat": "{{from}} -> {{to}} ({{reason}})"}]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Tokens/s by direction", "description": "llm_gateway_tokens_total{direction}: token volume is the cost proxy for the sovereign tier.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 23},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (direction) (rate(llm_gateway_tokens_total{role=~\"$role\",model=~\"$model\"}[$__rate_interval]))", "legendFormat": "{{direction}}"}]
+    },
+    {
+      "id": 15, "type": "bargauge", "title": "Tokens in range by role and model", "description": "increase of llm_gateway_tokens_total over the dashboard range.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 23},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (role, model, direction) (increase(llm_gateway_tokens_total{role=~\"$role\",model=~\"$model\"}[$__range])) > 0", "legendFormat": "{{role}} / {{model}} / {{direction}}", "instant": true}]
+    },
+    {
+      "id": 16, "type": "timeseries", "title": "GPU busy (GPU-seconds per second)", "description": "rate of llm_gateway_gpu_seconds_total: 1.0 means one GPU fully busy.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 23},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 2, "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (role, model) (rate(llm_gateway_gpu_seconds_total{role=~\"$role\",model=~\"$model\"}[$__rate_interval]))", "legendFormat": "{{role}} / {{model}}"}]
+    },
+    {"id": 17, "type": "row", "title": "Guardrails and tool calls", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31}, "panels": []},
+    {
+      "id": 18, "type": "timeseries", "title": "Injection blocked and schema violations (per minute)", "description": "llm_gateway_prompt_injection_blocked_total (input still triaged defensively) and llm_gateway_output_schema_violations_total (answer rejected, next tier tried).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 32},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "drawStyle": "bars"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(llm_gateway_prompt_injection_blocked_total[1m]))", "legendFormat": "injection blocked"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(llm_gateway_output_schema_violations_total[1m]))", "legendFormat": "schema violations"}
+      ]
+    },
+    {
+      "id": 19, "type": "timeseries", "title": "Guardrail rejections by kind", "description": "llm_gateway_guardrail_rejections_total{kind}: model outputs rejected by output guardrails.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 32},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (kind) (increase(llm_gateway_guardrail_rejections_total[$__rate_interval])) > 0", "legendFormat": "{{kind}}"}]
+    },
+    {
+      "id": 20, "type": "timeseries", "title": "MCP tool calls by decision (per minute)", "description": "llm_gateway_mcp_tool_calls_total{decision}.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 32},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "denied"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+        {"matcher": {"id": "byName", "options": "rate_limited"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "allowed"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (decision) (increase(llm_gateway_mcp_tool_calls_total[1m])) > 0", "legendFormat": "{{decision}}"}]
+    },
+    {"id": 21, "type": "row", "title": "Capacity and audit pipeline", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 40}, "panels": []},
+    {
+      "id": 22, "type": "timeseries", "title": "Ollama GPU memory utilisation", "description": "ollama_gpu_memory_util (0-1). Alert above 95%.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "custom": {"lineWidth": 1, "fillOpacity": 15, "showPoints": "never", "thresholdsStyle": {"mode": "line"}}, "thresholds": {"mode": "absolute", "steps": [{"color": "transparent", "value": null}, {"color": "red", "value": 0.95}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (instance) (ollama_gpu_memory_util)", "legendFormat": "{{instance}}"}]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "Queue and spool depth", "description": "llm_gateway_queue_depth (inference backlog) and llm_gateway_spool_depth (audit events waiting for Fluent Bit; secondary axis).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": [{"matcher": {"id": "byName", "options": "spool depth"}, "properties": [{"id": "custom.axisPlacement", "value": "right"}]}]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max(llm_gateway_queue_depth)", "legendFormat": "queue depth"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max(llm_gateway_spool_depth)", "legendFormat": "spool depth"}
+      ]
+    },
+    {
+      "id": 24, "type": "timeseries", "title": "Audit events accepted, dropped, quarantined (per minute)", "description": "llm_gateway_audit_{events,dropped,quarantined}_total{tag}. Dropped = spool full; quarantined = repeated 4xx from Fluent Bit.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 41},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": [
+        {"matcher": {"id": "byRegexp", "options": "dropped .*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+        {"matcher": {"id": "byRegexp", "options": "quarantined .*"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (tag) (increase(llm_gateway_audit_events_total[1m]))", "legendFormat": "accepted {{tag}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (tag) (increase(llm_gateway_audit_dropped_total[1m])) > 0", "legendFormat": "dropped {{tag}}"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (tag) (increase(llm_gateway_audit_quarantined_total[1m])) > 0", "legendFormat": "quarantined {{tag}}"}
+      ]
+    },
+    {
+      "id": 25, "type": "timeseries", "title": "Gateway vs Fluentd inference counts", "description": "Gateway analysed records/s next to cs3_pipeline_ai_inference_total (events seen by Fluentd) and Ollama journal lines (cs3_pipeline_ai_ollama_lines_total, ESOC/SIEM only). A persistent gap means events are spooled or lost.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 49},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(llm_gateway_requests_total[$__rate_interval]))", "legendFormat": "gateway analysed"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(cs3_pipeline_ai_inference_total[$__rate_interval]))", "legendFormat": "fluentd inference events"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(cs3_pipeline_ai_ollama_lines_total[$__rate_interval]))", "legendFormat": "ollama journal lines"}
+      ]
+    },
+    {
+      "id": 26, "type": "timeseries", "title": "GPU-seconds seen by Fluentd (60 s window)", "description": "cs3_sp_ai_gpu_seconds_60s and cs3_sp_ai_inferences_60s from the Fluent Bit stream processor (edge_node label).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 49},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (edge_node) (cs3_sp_ai_gpu_seconds_60s)", "legendFormat": "GPU-s {{edge_node}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (edge_node) (cs3_sp_ai_inferences_60s)", "legendFormat": "inferences {{edge_node}}"},
+        {"refId": "C", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (edge_node) (cs3_sp_ai_avg_latency_ms_60s)", "legendFormat": "avg latency ms {{edge_node}}"}
+      ]
+    },
+    {"id": 27, "type": "row", "title": "Stored inference and audit (OpenSearch)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 57}, "panels": []},
+    {
+      "id": 28, "type": "timeseries", "title": "Inference latency from stored events (ms)", "description": "cs3-ai-inference-*: p50/p95 of latency_ms.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 58},
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"}, "timeField": "@timestamp", "query": "_exists_:latency_ms",
+        "metrics": [{"id": "1", "type": "percentiles", "field": "latency_ms", "settings": {"percents": ["50", "95"]}}],
+        "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}]
+      }]
+    },
+    {
+      "id": 29, "type": "timeseries", "title": "Tokens in / out from stored events", "description": "cs3-ai-inference-*: sum of tokens_in and tokens_out per interval.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 58},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 30, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {
+          "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"}, "timeField": "@timestamp", "query": "_exists_:tokens_in", "alias": "tokens_in",
+          "metrics": [{"id": "1", "type": "sum", "field": "tokens_in"}],
+          "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}]
+        },
+        {
+          "refId": "B", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"}, "timeField": "@timestamp", "query": "_exists_:tokens_out", "alias": "tokens_out",
+          "metrics": [{"id": "1", "type": "sum", "field": "tokens_out"}],
+          "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}]
+        }
+      ]
+    },
+    {
+      "id": 30, "type": "piechart", "title": "Fallback reasons", "description": "cs3-ai-inference-*: fallback_reason of records answered by a lower tier.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"},
+      "gridPos": {"h": 8, "w": 4, "x": 16, "y": 58},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "bottom", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"}, "timeField": "@timestamp", "query": "fallback:true AND _exists_:fallback_reason",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "fallback_reason", "settings": {"size": "8", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 31, "type": "piechart", "title": "Verdicts", "description": "cs3-ai-inference-*: verdict.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"},
+      "gridPos": {"h": 8, "w": 4, "x": 20, "y": 58},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "bottom", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-inference"}, "timeField": "@timestamp", "query": "_exists_:verdict",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "verdict", "settings": {"size": "8", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 32, "type": "table", "title": "Latest audit events (hash chain)", "description": "cs3-ai-audit-*: newest 50 events with chain_id, seq and hash (gateway-provided, stored untouched; replays are rejected by id_key=hash).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-audit"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 66},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}, "sortBy": [{"displayName": "@timestamp", "desc": true}]},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-ai-audit"}, "timeField": "@timestamp", "query": "*",
+        "metrics": [{"id": "1", "type": "raw_data", "settings": {"size": "50"}}],
+        "bucketAggs": []
+      }],
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"_id": true, "_index": true, "_type": true, "highlight": true, "sort": true}, "indexByName": {"@timestamp": 0, "event_type": 1, "role": 2, "model": 3, "tool": 4, "decision": 5, "chain_id": 6, "seq": 7, "hash": 8, "prev_hash": 9}, "renameByName": {}}}]
+    }
+  ]
+}

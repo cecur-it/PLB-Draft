@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+printf "ARGS:%s\n" "$*" >>"$FAKE_LOG"
+case ${1-} in
+  view)
+    echo "Serving ${2} (live) at:"
+    echo "  http://127.0.0.1:8765/?token=SeCrEt-Tok_123"
+    trap 'exit 0' TERM
+    while :; do sleep 0.2; done ;;
+  *)
+    echo "ENV LLM_API_BASE=${LLM_API_BASE-} STREAM=${LLM_DISABLE_STREAMING-} MODEL=${errow_LLM-} TELEMETRY=${errow_TELEMETRY-} APP=${errow_APP_URL-} KEYLEN=${#LLM_API_KEY} HDR=${LLM_EXTRA_HEADERS-} IMG=${errow_IMAGE-} DOCKER=${DOCKER_HOST-}"
+    echo "token=XYZ should be redacted"
+    exit "${FAKE_EXIT:-0}" ;;
+esac

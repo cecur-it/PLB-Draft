@@ -1,0 +1,119 @@
+# Traces: CONTRACT section 2 (errow-viewer 8765), errow/viewer/deployment.yaml (C1 reference shape), PROMPT section 1 (viewer behind an auth gate).
+{{- if .Values.errow.enabled }}
+{{- $v := .Values.errow.viewer }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-viewer
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-viewer") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "errow-viewer") | indent 4 }}
+  ports:
+    - {name: http, port: 8765, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-viewer
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-viewer") | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-viewer") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-viewer") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" (dict) "component" "errow-viewer" "co" true) | indent 6 }}
+      containers:
+        - name: viewer
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.errow) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.env" (dict "ERROW_MODE" "view" "ERROW_VIEWER_HOST" "0.0.0.0" "ERROW_VIEWER_PORT" "8765") | indent 12 }}
+          ports:
+            - {name: http, containerPort: 8765}
+          startupProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["errow-entrypoint", "--healthcheck"]
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 5
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $v.resources | indent 12 }}
+          volumeMounts:
+            - {name: runs, mountPath: /workspace/errow_runs, readOnly: true}
+            - {name: home, mountPath: /home/errow}
+            - {name: tmp, mountPath: /tmp}
+            - {name: log, mountPath: /var/log/errow}
+      volumes:
+        - name: runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+            readOnly: true
+        - name: home
+          emptyDir:
+            medium: Memory
+        - name: tmp
+          emptyDir: {}
+        - name: log
+          emptyDir: {}
+{{- if $v.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: errow-viewer
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-viewer") | indent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: {{ $v.ingress.basicAuthSecret }}
+    nginx.ingress.kubernetes.io/auth-realm: Authentication Required - errow viewer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- with $v.ingress.annotations }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  {{- with $v.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  tls:
+    - hosts: [{{ $v.ingress.host | quote }}]
+      secretName: {{ $v.ingress.tlsSecret }}
+  rules:
+    - host: {{ $v.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: errow-viewer
+                port:
+                  name: http
+{{- end }}
+{{- end }}

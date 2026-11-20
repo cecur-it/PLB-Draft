@@ -1,0 +1,47 @@
+[
+  {
+    "id": "vuln-0001",
+    "title": "SQL injection in /api/search",
+    "severity": "high",
+    "timestamp": "2026-11-12 09:15:30 UTC",
+    "description": "The q parameter is concatenated into a query. Observed with password=hunter2 in the debug echo.",
+    "impact": "Database read access.\n```sql\nSELECT * FROM users; -- PAYLOAD-MARKER impact block\n```",
+    "target": "http://scan-target.vendetta.lab",
+    "technical_analysis": "Unsanitised input reaches the ORM raw() call.",
+    "poc_description": "Send a single quote in q and observe the SQL error.",
+    "poc_script_code": "import requests\nrequests.get('http://scan-target.vendetta.lab/api/search?q=PAYLOAD-MARKER')\n",
+    "remediation_steps": "Use parameterised queries.\n```python\ncur.execute('SELECT 1 WHERE x=%s', (q,))\n```",
+    "confidence": "high",
+    "cvss": 8.1,
+    "endpoint": "/api/search",
+    "method": "GET",
+    "cwe": "CWE-89",
+    "code_locations": [
+      {
+        "file": "app/search.py",
+        "start_line": 42,
+        "end_line": 44,
+        "snippet": "rows = db.raw(\"SELECT * FROM items WHERE name = '\" + q + \"'\")",
+        "label": "sink"
+      }
+    ]
+  },
+  {
+    "id": "vuln-0002",
+    "title": "Broken object level authorization on /api/orders/{id}",
+    "severity": "medium",
+    "timestamp": "2026-11-12 09:42:10 UTC",
+    "description": "Orders of other tenants are readable by id.",
+    "impact": "Cross-tenant data exposure.",
+    "target": "http://scan-target.vendetta.lab",
+    "technical_analysis": "No ownership check on the order lookup.",
+    "poc_description": "Request another tenant's order id.",
+    "poc_script_code": "curl -H 'Authorization: Bearer PAYLOAD-MARKER-token' http://scan-target.vendetta.lab/api/orders/2",
+    "remediation_steps": "Check tenant ownership server-side.",
+    "confidence": "medium",
+    "cvss": 6.5,
+    "endpoint": "/api/orders/{id}",
+    "method": "GET",
+    "cwe": "CWE-639"
+  }
+]

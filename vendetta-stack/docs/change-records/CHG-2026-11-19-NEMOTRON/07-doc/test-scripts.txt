@@ -1,0 +1,1306 @@
+== help
+  ok   bootstrap.sh is executable
+  ok   bootstrap.sh --help (rc 0)
+  ok   bootstrap.sh --help documents exit codes
+  ok   bootstrap.sh --help shows usage
+  ok   bootstrap.sh rejects an unknown option (rc 2)
+  ok   enroll-agent.sh is executable
+  ok   enroll-agent.sh --help (rc 0)
+  ok   enroll-agent.sh --help documents exit codes
+  ok   enroll-agent.sh --help shows usage
+  ok   enroll-agent.sh rejects an unknown option (rc 2)
+  ok   enroll-errow.sh is executable
+  ok   enroll-errow.sh --help (rc 0)
+  ok   enroll-errow.sh --help documents exit codes
+  ok   enroll-errow.sh --help shows usage
+  ok   enroll-errow.sh rejects an unknown option (rc 2)
+  ok   enroll-ollama.sh is executable
+  ok   enroll-ollama.sh --help (rc 0)
+  ok   enroll-ollama.sh --help documents exit codes
+  ok   enroll-ollama.sh --help shows usage
+  ok   enroll-ollama.sh rejects an unknown option (rc 2)
+  ok   rotate-certs.sh is executable
+  ok   rotate-certs.sh --help (rc 0)
+  ok   rotate-certs.sh --help documents exit codes
+  ok   rotate-certs.sh --help shows usage
+  ok   rotate-certs.sh rejects an unknown option (rc 2)
+  ok   backup-opensearch.sh is executable
+  ok   backup-opensearch.sh --help (rc 0)
+  ok   backup-opensearch.sh --help documents exit codes
+  ok   backup-opensearch.sh --help shows usage
+  ok   backup-opensearch.sh rejects an unknown option (rc 2)
+  ok   build-airgap-bundle.sh is executable
+  ok   build-airgap-bundle.sh --help (rc 0)
+  ok   build-airgap-bundle.sh --help documents exit codes
+  ok   build-airgap-bundle.sh --help shows usage
+  ok   build-airgap-bundle.sh rejects an unknown option (rc 2)
+  ok   verify-bundle.sh is executable
+  ok   verify-bundle.sh --help (rc 0)
+  ok   verify-bundle.sh --help documents exit codes
+  ok   verify-bundle.sh --help shows usage
+  ok   verify-bundle.sh rejects an unknown option (rc 1)
+  ok   healthcheck.sh is executable
+  ok   healthcheck.sh --help (rc 0)
+  ok   healthcheck.sh --help documents exit codes
+  ok   healthcheck.sh --help shows usage
+  ok   healthcheck.sh rejects an unknown option (rc 64)
+  ok   sync-mcp-policy.sh is executable
+  ok   sync-mcp-policy.sh --help (rc 0)
+  ok   sync-mcp-policy.sh --help documents exit codes
+  ok   sync-mcp-policy.sh --help shows usage
+  ok   sync-mcp-policy.sh rejects an unknown option (rc 2)
+== hygiene
+  ok   backup-opensearch.sh starts with '#!/usr/bin/env bash'
+  ok   backup-opensearch.sh uses strict mode
+  ok   backup-opensearch.sh sets IFS=$'\n\t'
+  ok   backup-opensearch.sh has an ERR trap
+  ok   backup-opensearch.sh has a Traces header
+  ok   backup-opensearch.sh has no TODO/FIXME/placeholder markers
+  ok   bootstrap.sh starts with '#!/usr/bin/env bash'
+  ok   bootstrap.sh uses strict mode
+  ok   bootstrap.sh sets IFS=$'\n\t'
+  ok   bootstrap.sh has an ERR trap
+  ok   bootstrap.sh has a Traces header
+  ok   bootstrap.sh has no TODO/FIXME/placeholder markers
+  ok   build-airgap-bundle.sh starts with '#!/usr/bin/env bash'
+  ok   build-airgap-bundle.sh uses strict mode
+  ok   build-airgap-bundle.sh sets IFS=$'\n\t'
+  ok   build-airgap-bundle.sh has an ERR trap
+  ok   build-airgap-bundle.sh has a Traces header
+  ok   build-airgap-bundle.sh has no TODO/FIXME/placeholder markers
+  ok   check-allowlists.sh starts with '#!/usr/bin/env bash'
+  ok   check-allowlists.sh uses strict mode
+  ok   check-allowlists.sh sets IFS=$'\n\t'
+  ok   check-allowlists.sh has an ERR trap
+  ok   check-allowlists.sh has a Traces header
+  ok   check-allowlists.sh has no TODO/FIXME/placeholder markers
+  ok   enroll-agent.sh starts with '#!/usr/bin/env bash'
+  ok   enroll-agent.sh uses strict mode
+  ok   enroll-agent.sh sets IFS=$'\n\t'
+  ok   enroll-agent.sh has an ERR trap
+  ok   enroll-agent.sh has a Traces header
+  ok   enroll-agent.sh has no TODO/FIXME/placeholder markers
+  ok   enroll-errow.sh starts with '#!/usr/bin/env bash'
+  ok   enroll-errow.sh uses strict mode
+  ok   enroll-errow.sh sets IFS=$'\n\t'
+  ok   enroll-errow.sh has an ERR trap
+  ok   enroll-errow.sh has a Traces header
+  ok   enroll-errow.sh has no TODO/FIXME/placeholder markers
+  ok   enroll-ollama.sh starts with '#!/usr/bin/env bash'
+  ok   enroll-ollama.sh uses strict mode
+  ok   enroll-ollama.sh sets IFS=$'\n\t'
+  ok   enroll-ollama.sh has an ERR trap
+  ok   enroll-ollama.sh has a Traces header
+  ok   enroll-ollama.sh has no TODO/FIXME/placeholder markers
+  ok   healthcheck.sh starts with '#!/usr/bin/env bash'
+  ok   healthcheck.sh uses strict mode
+  ok   healthcheck.sh sets IFS=$'\n\t'
+  ok   healthcheck.sh has an ERR trap
+  ok   healthcheck.sh has a Traces header
+  ok   healthcheck.sh has no TODO/FIXME/placeholder markers
+  ok   pin-manager-cert.sh starts with '#!/usr/bin/env bash'
+  ok   pin-manager-cert.sh uses strict mode
+  ok   pin-manager-cert.sh sets IFS=$'\n\t'
+  ok   pin-manager-cert.sh has an ERR trap
+  ok   pin-manager-cert.sh has a Traces header
+  ok   pin-manager-cert.sh has no TODO/FIXME/placeholder markers
+  ok   rotate-certs.sh starts with '#!/usr/bin/env bash'
+  ok   rotate-certs.sh uses strict mode
+  ok   rotate-certs.sh sets IFS=$'\n\t'
+  ok   rotate-certs.sh has an ERR trap
+  ok   rotate-certs.sh has a Traces header
+  ok   rotate-certs.sh has no TODO/FIXME/placeholder markers
+  ok   sync-mcp-policy.sh starts with '#!/usr/bin/env bash'
+  ok   sync-mcp-policy.sh uses strict mode
+  ok   sync-mcp-policy.sh sets IFS=$'\n\t'
+  ok   sync-mcp-policy.sh has an ERR trap
+  ok   sync-mcp-policy.sh has a Traces header
+  ok   sync-mcp-policy.sh has no TODO/FIXME/placeholder markers
+  ok   verify-bundle.sh starts with '#!/usr/bin/env bash'
+  ok   verify-bundle.sh uses strict mode
+  ok   verify-bundle.sh sets IFS=$'\n\t'
+  ok   verify-bundle.sh has an ERR trap
+  ok   verify-bundle.sh has a Traces header
+  ok   verify-bundle.sh has no TODO/FIXME/placeholder markers
+  ok   verify-manager.sh starts with '#!/usr/bin/env bash'
+  ok   verify-manager.sh uses strict mode
+  ok   verify-manager.sh sets IFS=$'\n\t'
+  ok   verify-manager.sh has an ERR trap
+  ok   verify-manager.sh has a Traces header
+  ok   verify-manager.sh has no TODO/FIXME/placeholder markers
+  ok   lib/common.sh is a sourced file (shellcheck shell=bash)
+  ok   lib/images.sh is a sourced file (shellcheck shell=bash)
+  ok   lib/models.sh is a sourced file (shellcheck shell=bash)
+  ok   lib/pki.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/test_scripts.sh starts with '#!/usr/bin/env bash'
+  ok   tests/test_scripts.sh uses strict mode
+  ok   tests/test_scripts.sh sets IFS=$'\n\t'
+  ok   tests/test_scripts.sh has an ERR trap
+  ok   tests/test_scripts.sh has a Traces header
+  ok   tests/test_scripts.sh has no TODO/FIXME/placeholder markers
+  ok   tests/cases/10_basics.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/20_bootstrap.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/30_rotate.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/40_policy_bundle.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/60_health.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/70_backup.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/80_enroll_ollama.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/85_enroll_errow.sh is a sourced file (shellcheck shell=bash)
+  ok   tests/cases/90_enroll_agent.sh is a sourced file (shellcheck shell=bash)
+== bootstrap_approval_dir
+  ok   --dry-run plans the approval dir (rc 0)
+  ok   dry-run reports the approval dir as NEW
+  ok   dry-run created nothing
+  ok   --check on a tree without secrets/approval fails (rc 5)
+  ok   --check explains the root-owned auto-create
+  ok   bootstrap creates secrets/approval (rc 0)
+  ok   secrets/approval is a directory
+  ok   secrets/approval is 0700
+  ok   approval dir reported NEW
+  ok   feedback_approval_key is never generated
+  ok   feedback_approval_key is not a bootstrap-managed secret
+  ok   NOTE row: the key is opt-in and operator-generated
+  ok   --check passes once the directory exists (rc 0)
+  ok   --check still prints the NOTE row
+  ok   re-run with an operator key present (rc 0)
+  ok   the operator's key and all secrets are untouched
+  ok   re-run keeps the approval dir
+  ok   re-run keeps the key
+  ok   no NOTE when the key exists
+  ok   --check warns about a loose key mode (rc 0)
+  ok   loose key mode named
+  ok   --check fails on a loose approval dir mode (rc 5)
+  ok   loose dir mode named
+  ok   bootstrap tightens a loose approval dir (rc 0)
+  ok   approval dir back to 0700
+  ok   ERROW_FEEDBACK_LIVE=true without the key: --check fails (rc 5)
+  ok   names APPROVALS.md
+  ok   ERROW_FEEDBACK_LIVE=true without the key: bootstrap only warns (rc 0)
+  ok   WARN row
+  ok   still no generated key
+  ok   --key-group makes the approval dir 0750 (rc 0)
+  ok   approval dir 0750 with --key-group
+  ok   --dev-readable-secrets makes the approval dir 0755 (rc 0)
+  ok   approval dir 0755 with --dev-readable-secrets
+  ok   ERROW_FEEDBACK_APPROVAL_DIR is honoured (rc 0)
+  ok   alternative approval dir is 0700
+  ok   the default location is not created
+  ok   --no-secrets skips the approval dir (rc 0)
+  ok   no approval dir with --no-secrets
+== bootstrap_approval_keys
+  ok   bootstrap creates the approval dir (rc 0)
+  ok   --check warns when only the shared key exists (rc 0)
+  ok   the shared key alone is flagged as no dual control
+mkdir: /Users/dontadaya/Downloads/CS3-PLB-v1.0.1-main/vendetta-stack/.scratch/test.9007/bs-akeys/secrets/approval/keys: File exists
+  ok   --check passes with one per-approver key (shared key counts as the second authority) (rc 0)
+  ok   the key set is reported
+  ok   no dual-control warning once a per-approver key exists
+  ok   --check fails on a loose per-approver key (rc 5)
+  ok   the loose key is named
+  ok   --check fails on a short per-approver key (rc 5)
+  ok   the short key is named
+  ok   --check fails when the threshold cannot be met while live (rc 5)
+  ok   the shortfall is named
+  ok   …and only warns while live feedback is off (rc 0)
+  ok   WARN when live is off
+  ok   --check fails on a non-numeric threshold (rc 5)
+  ok   the bad threshold is named
+  ok   --check fails when keys/ is a file (rc 5)
+  ok   the file is named
+== bootstrap_dry_run_and_check
+  ok   bootstrap --dry-run (fresh tree) (rc 0)
+  ok   dry-run created no secrets/
+  ok   dry-run created no pki/
+  ok   dry-run created no .env
+  ok   dry-run reports the secrets it would create
+  ok   bootstrap --check on an empty tree reports problems (rc 5)
+  ok   --check wrote nothing
+== bootstrap_env
+  ok   bootstrap renders .env from .env.example (rc 0)
+  ok   .env created
+  ok   .env is 0600
+  ok   .env carries the --set override
+  ok   .env keeps the example comments
+  ok   existing .env is not overwritten (rc 0)
+  ok   .env content untouched
+  ok   --set refuses secret-looking keys (rc 2)
+  ok   refused value never echoed
+== bootstrap_failclosed
+  ok   airgap + cloud LLM key → FailClosedError (rc 3)
+  ok   message names FailClosedError
+  ok   the key value is never printed
+  ok   onprem + cloud key → exit 3 (also without --check) (rc 3)
+  ok   FailClosed stops before generating anything
+  ok   airgap without cloud keys passes the FailClosed step (rc 0)
+== bootstrap_legacy_pki_archive
+  ok   bootstrap (rc 0)
+  ok   --check flags the legacy pki/archive layout (rc 5)
+  ok   names pki/archive with the fix hint
+  ok   names the legacy mkcert store too
+  ok   --check moved nothing
+  ok   --check flags any unreadable subdirectory (rc 5)
+  ok   names the subdirectory
+  ok   --dry-run reports the migration (rc 0)
+  ok   dry-run says what it would move
+  ok   dry-run moved nothing
+  ok   bootstrap migrates the legacy archive out of pki/ (rc 0)
+  ok   pki/archive is gone
+  ok   pki/.mkcert is gone
+  ok   archived set kept under pki-archive/
+  ok   mkcert CA store kept under pki-archive/
+  ok   migrated timestamp dir stays 0700
+  ok   pki-archive/ is 0700
+  ok   pki/ contains no subdirectory
+  ok   --check is green after the migration (rc 0)
+  ok   --check reports the archive outside pki/
+  ok   re-run is idempotent (rc 0)
+  ok   nothing changed
+  ok   --check flags a loose pki-archive mode (rc 5)
+  ok   names the mode problem
+  ok   PKI_ARCHIVE_DIR inside pki/ is refused (rc 2)
+  ok   explains why
+  ok   --check flags PKI_ARCHIVE_DIR inside pki/ (rc 5)
+  ok   nothing was created inside pki/
+  ok   a PKI_ARCHIVE_DIR override outside the stack is honored (rc 0)
+  ok   custom archive dir is 0700
+== bootstrap_modes_and_options
+  ok   bootstrap --dev-readable-keys (rc 0)
+  ok   keys are 0644 with --dev-readable-keys
+  ok   ca.key stays 0600 even with --dev-readable-keys
+  ok   bootstrap --pki-algo rsa (rc 0)
+  ok   RSA CA is 4096 bit
+  ok   extra service certificate issued and valid
+  ok   --pki step-ca without the step CLI is a prerequisite error (rc 4)
+  ok   nothing issued by the failed step-ca run
+  ok   bad --pki mode is a usage error (rc 2)
+  ok   absurd PKI_DAYS is a usage error (rc 2)
+== bootstrap_preflight
+  ok   preflight with docker 29 + compose v2 (rc depends on this host's vm.max_map_count=) (rc 0)
+  ok   docker engine version reported
+  ok   compose v2 detected
+  ok   vm.max_map_count row present
+  ok   docker < 24 fails preflight (rc 4)
+  ok   old engine named in the failure
+  ok   compose v1 fails preflight (rc 4)
+  ok   compose v2 required
+  ok   insufficient disk fails preflight (rc 4)
+  ok   disk failure reported
+== bootstrap_renewal_window
+  ok   bootstrap with PKI_DAYS=10 (rc 0)
+  ok   --check warns about certificates inside the 30-day window (rc 0)
+  ok   --check says days left
+  ok   bootstrap re-issues certificates with <30 days left (rc 0)
+  ok   errow.crt was re-issued
+  ok   the previous errow set was archived under pki-archive/
+  ok   …not under pki/
+  ok   pki/ still contains no subdirectory
+  ok   re-issued certificate has ~397 days
+== bootstrap_secrets_and_pki
+  ok   bootstrap (openssl mode) (rc 0)
+  ok   no .env.example yet is handled gracefully
+  ok   secrets/ directory is 0700
+  ok   secret opensearch_admin_password exists and is not empty
+  ok   secret opensearch_admin_password is 0600
+  ok   secret opensearch_admin_password has no trailing newline
+  ok   secret llm_gateway_token exists and is not empty
+  ok   secret llm_gateway_token is 0600
+  ok   secret llm_gateway_token has no trailing newline
+  ok   secret errow_api_token exists and is not empty
+  ok   secret errow_api_token is 0600
+  ok   secret errow_api_token has no trailing newline
+  ok   secret grafana_admin_password exists and is not empty
+  ok   secret grafana_admin_password is 0600
+  ok   secret grafana_admin_password has no trailing newline
+  ok   secret feedback_webhook_token exists and is not empty
+  ok   secret feedback_webhook_token is 0600
+  ok   secret feedback_webhook_token has no trailing newline
+  ok   secret vendetta_api_password exists and is not empty
+  ok   secret vendetta_api_password is 0600
+  ok   secret vendetta_api_password has no trailing newline
+  ok   secret cs3_approval_token exists and is not empty
+  ok   secret cs3_approval_token is 0600
+  ok   secret cs3_approval_token has no trailing newline
+  ok   opensearch_admin_password is ≥16 chars with upper/lower/digit/special
+  ok   tokens are ≥32 chars
+  ok   ca.crt exists
+  ok   ca.key is 0600
+  ok   pki-archive/ (PKI_ARCHIVE_DIR) is 0700
+  ok   pki/ has no archive directory (compose mounts pki/ into OpenSearch)
+  ok   pki/ contains no subdirectory at all
+  ok   CA is a CA (basicConstraints CA:TRUE)
+  ok   CA key is ECDSA P-384 by default
+  ok   pki/opensearch.{crt,key,pem} exist
+  ok   openssl verify opensearch.crt against the private CA
+  ok   opensearch.crt valid as TLS server
+  ok   opensearch.crt valid as TLS client
+  ok   opensearch.crt EKU serverAuth+clientAuth
+  ok   opensearch.key is 0600
+  ok   opensearch.key is PKCS#8
+  ok   opensearch.pem bundles certificate and key
+  ok   opensearch.crt matches its key
+  ok   opensearch.crt SAN has opensearch, localhost, 127.0.0.1
+  ok   pki/fluentd-1.{crt,key,pem} exist
+  ok   openssl verify fluentd-1.crt against the private CA
+  ok   fluentd-1.crt valid as TLS server
+  ok   fluentd-1.crt valid as TLS client
+  ok   fluentd-1.crt EKU serverAuth+clientAuth
+  ok   fluentd-1.key is 0600
+  ok   fluentd-1.key is PKCS#8
+  ok   fluentd-1.pem bundles certificate and key
+  ok   fluentd-1.crt matches its key
+  ok   fluentd-1.crt SAN has fluentd-1, localhost, 127.0.0.1
+  ok   pki/fluentd-2.{crt,key,pem} exist
+  ok   openssl verify fluentd-2.crt against the private CA
+  ok   fluentd-2.crt valid as TLS server
+  ok   fluentd-2.crt valid as TLS client
+  ok   fluentd-2.crt EKU serverAuth+clientAuth
+  ok   fluentd-2.key is 0600
+  ok   fluentd-2.key is PKCS#8
+  ok   fluentd-2.pem bundles certificate and key
+  ok   fluentd-2.crt matches its key
+  ok   fluentd-2.crt SAN has fluentd-2, localhost, 127.0.0.1
+  ok   pki/fluent-bit.{crt,key,pem} exist
+  ok   openssl verify fluent-bit.crt against the private CA
+  ok   fluent-bit.crt valid as TLS server
+  ok   fluent-bit.crt valid as TLS client
+  ok   fluent-bit.crt EKU serverAuth+clientAuth
+  ok   fluent-bit.key is 0600
+  ok   fluent-bit.key is PKCS#8
+  ok   fluent-bit.pem bundles certificate and key
+  ok   fluent-bit.crt matches its key
+  ok   fluent-bit.crt SAN has fluent-bit, localhost, 127.0.0.1
+  ok   pki/llm-gateway.{crt,key,pem} exist
+  ok   openssl verify llm-gateway.crt against the private CA
+  ok   llm-gateway.crt valid as TLS server
+  ok   llm-gateway.crt valid as TLS client
+  ok   llm-gateway.crt EKU serverAuth+clientAuth
+  ok   llm-gateway.key is 0600
+  ok   llm-gateway.key is PKCS#8
+  ok   llm-gateway.pem bundles certificate and key
+  ok   llm-gateway.crt matches its key
+  ok   llm-gateway.crt SAN has llm-gateway, localhost, 127.0.0.1
+  ok   pki/ollama-lb.{crt,key,pem} exist
+  ok   openssl verify ollama-lb.crt against the private CA
+  ok   ollama-lb.crt valid as TLS server
+  ok   ollama-lb.crt valid as TLS client
+  ok   ollama-lb.crt EKU serverAuth+clientAuth
+  ok   ollama-lb.key is 0600
+  ok   ollama-lb.key is PKCS#8
+  ok   ollama-lb.pem bundles certificate and key
+  ok   ollama-lb.crt matches its key
+  ok   ollama-lb.crt SAN has ollama-lb, localhost, 127.0.0.1
+  ok   pki/ollama-1.{crt,key,pem} exist
+  ok   openssl verify ollama-1.crt against the private CA
+  ok   ollama-1.crt valid as TLS server
+  ok   ollama-1.crt valid as TLS client
+  ok   ollama-1.crt EKU serverAuth+clientAuth
+  ok   ollama-1.key is 0600
+  ok   ollama-1.key is PKCS#8
+  ok   ollama-1.pem bundles certificate and key
+  ok   ollama-1.crt matches its key
+  ok   ollama-1.crt SAN has ollama-1, localhost, 127.0.0.1
+  ok   pki/mock-ollama.{crt,key,pem} exist
+  ok   openssl verify mock-ollama.crt against the private CA
+  ok   mock-ollama.crt valid as TLS server
+  ok   mock-ollama.crt valid as TLS client
+  ok   mock-ollama.crt EKU serverAuth+clientAuth
+  ok   mock-ollama.key is 0600
+  ok   mock-ollama.key is PKCS#8
+  ok   mock-ollama.pem bundles certificate and key
+  ok   mock-ollama.crt matches its key
+  ok   mock-ollama.crt SAN has mock-ollama, localhost, 127.0.0.1
+  ok   pki/errow-mcp.{crt,key,pem} exist
+  ok   openssl verify errow-mcp.crt against the private CA
+  ok   errow-mcp.crt valid as TLS server
+  ok   errow-mcp.crt valid as TLS client
+  ok   errow-mcp.crt EKU serverAuth+clientAuth
+  ok   errow-mcp.key is 0600
+  ok   errow-mcp.key is PKCS#8
+  ok   errow-mcp.pem bundles certificate and key
+  ok   errow-mcp.crt matches its key
+  ok   errow-mcp.crt SAN has errow-mcp, localhost, 127.0.0.1
+  ok   pki/errow.{crt,key,pem} exist
+  ok   openssl verify errow.crt against the private CA
+  ok   errow.crt valid as TLS server
+  ok   errow.crt valid as TLS client
+  ok   errow.crt EKU serverAuth+clientAuth
+  ok   errow.key is 0600
+  ok   errow.key is PKCS#8
+  ok   errow.pem bundles certificate and key
+  ok   errow.crt matches its key
+  ok   errow.crt SAN has errow, localhost, 127.0.0.1
+  ok   pki/errow-feedback.{crt,key,pem} exist
+  ok   openssl verify errow-feedback.crt against the private CA
+  ok   errow-feedback.crt valid as TLS server
+  ok   errow-feedback.crt valid as TLS client
+  ok   errow-feedback.crt EKU serverAuth+clientAuth
+  ok   errow-feedback.key is 0600
+  ok   errow-feedback.key is PKCS#8
+  ok   errow-feedback.pem bundles certificate and key
+  ok   errow-feedback.crt matches its key
+  ok   errow-feedback.crt SAN has errow-feedback, localhost, 127.0.0.1
+  ok   pki/prometheus.{crt,key,pem} exist
+  ok   openssl verify prometheus.crt against the private CA
+  ok   prometheus.crt valid as TLS server
+  ok   prometheus.crt valid as TLS client
+  ok   prometheus.crt EKU serverAuth+clientAuth
+  ok   prometheus.key is 0600
+  ok   prometheus.key is PKCS#8
+  ok   prometheus.pem bundles certificate and key
+  ok   prometheus.crt matches its key
+  ok   prometheus.crt SAN has prometheus, localhost, 127.0.0.1
+  ok   pki/vendetta-manager.{crt,key,pem} exist
+  ok   openssl verify vendetta-manager.crt against the private CA
+  ok   vendetta-manager.crt valid as TLS server
+  ok   vendetta-manager.crt valid as TLS client
+  ok   vendetta-manager.crt EKU serverAuth+clientAuth
+  ok   vendetta-manager.key is 0600
+  ok   vendetta-manager.key is PKCS#8
+  ok   vendetta-manager.pem bundles certificate and key
+  ok   vendetta-manager.crt matches its key
+  ok   vendetta-manager.crt SAN has vendetta-manager, localhost, 127.0.0.1
+  ok   pki/opensearch-dashboards.{crt,key,pem} exist
+  ok   openssl verify opensearch-dashboards.crt against the private CA
+  ok   opensearch-dashboards.crt valid as TLS server
+  ok   opensearch-dashboards.crt valid as TLS client
+  ok   opensearch-dashboards.crt EKU serverAuth+clientAuth
+  ok   opensearch-dashboards.key is 0600
+  ok   opensearch-dashboards.key is PKCS#8
+  ok   opensearch-dashboards.pem bundles certificate and key
+  ok   opensearch-dashboards.crt matches its key
+  ok   opensearch-dashboards.crt SAN has opensearch-dashboards, localhost, 127.0.0.1
+  ok   pki/opensearch-admin.{crt,key,pem} exist
+  ok   openssl verify opensearch-admin.crt against the private CA
+  ok   opensearch-admin.crt valid as TLS server
+  ok   opensearch-admin.crt valid as TLS client
+  ok   opensearch-admin.crt EKU serverAuth+clientAuth
+  ok   opensearch-admin.key is 0600
+  ok   opensearch-admin.key is PKCS#8
+  ok   opensearch-admin.pem bundles certificate and key
+  ok   opensearch-admin.crt matches its key
+  ok   ollama-1.crt also covers ollama-workers (LB DNS discovery) and ollama-1-proxy
+  ok   opensearch-admin subject is CN=opensearch-admin,O=Vendetta Stack
+  ok   opensearch node subject has CN=opensearch
+  ok   leaf validity is 397 days by default
+  ok   bootstrap --check on a complete tree (rc 0)
+  ok   --check finds nothing failing
+  ok   bootstrap re-run (idempotent) (rc 0)
+  ok   re-run changes no secret and no certificate
+  ok   re-run keeps existing secrets
+  ok   re-run keeps valid certificates
+  ok   bootstrap re-issues only the missing certificate (rc 0)
+  ok   other certificates untouched
+  ok   errow.crt re-created and valid
+  ok   --check flags a world-readable secret (rc 5)
+  ok   --check names the loose secret
+== rotate_ca_phases
+  ok   CA rotation dry-run (rc 0)
+  ok   dry-run leaves no rotation state
+  ok   --ca-phase finalize cannot be the first phase (rc 3)
+  ok   phase 1: overlap (dual-trust bundle) (rc 0)
+  ok   ca.crt now holds two CA certificates
+  ok   leaf certificates are unchanged in the overlap phase
+  ok   old leaf still verifies against the dual-trust bundle
+  ok   rotation state recorded
+  ok   phases cannot be skipped (rc 3)
+  ok   phase 2: reissue under the new CA (rc 0)
+  ok   errow.crt re-issued
+  ok   new leaf verifies against the dual-trust bundle
+  ok   new leaf is signed by the NEW CA only
+  ok   phase 3: finalize (drop the old CA) (rc 0)
+  ok   ca.crt holds the new CA only
+  ok   rotation state removed
+  ok   every leaf verifies against the final CA
+  ok   the archive keeps the old CA
+  ok   the old CA's signer/state files are archived too
+  ok   pki/ contains no subdirectory after a full CA rotation
+  ok   no ca-next.* / ca-signer.crt / .rotation-state is left behind in pki/
+  ok   bootstrap --check is green after the rotation (rc 0)
+== rotate_compose_reload
+  ok   rotation with compose reload (rc 0)
+  ok   OpenSearch certificates hot-reloaded over the admin API (transport + http)
+  ok   prometheus got HUP
+  ok   llm-gateway restarted
+  ok   ollama-lb HUP follows a gateway restart (shared network namespace)
+  ok   services that were not rotated are left alone
+  ok   fluentd-2 is restarted before fluentd-1
+  ok   unhealthy service after the reload → exit 5 (rc 5)
+  ok   unhealthy service named
+  ok   certificate was still rotated and verified
+  ok   services that are not running are skipped (rc 0)
+  ok   skip reported
+  ok   no action was taken
+  ok   dry-run prints reload actions without running them (rc 0)
+  ok   dry-run shows the planned restart
+  ok   dry-run executed nothing
+== rotate_dry_run_and_issue
+  ok   rotate-certs --dry-run (rc 0)
+  ok   dry-run changes nothing in pki/
+  ok   dry-run lists the certificates it would issue
+  ok   dry-run creates no archive
+  ok   rotate-certs --only-expiring with nothing expiring (rc 0)
+  ok   nothing to rotate
+  ok   no files changed
+  ok   rotate only errow + prometheus (rc 0)
+  ok   errow.crt was re-issued
+  ok   prometheus.crt was re-issued
+  ok   opensearch-admin.crt untouched
+  ok   CA untouched
+  ok   new errow.crt verifies against the CA
+  ok   new errow.key is 0600
+  ok   previous set archived outside pki/
+  ok   archived errow.crt is the previous certificate
+  ok   archive dir is 0700
+  ok   pki-archive root is 0700
+  ok   pki/ holds no archive directory
+  ok   pki/ contains no subdirectory at all (OpenSearch cannot read an 0700 one)
+  ok   verification table printed
+  ok   rotate every certificate (rc 0)
+  ok   opensearch.crt verifies after a full rotation
+  ok   fluentd-1.crt verifies after a full rotation
+  ok   llm-gateway.crt verifies after a full rotation
+  ok   ollama-lb.crt verifies after a full rotation
+  ok   opensearch-admin.crt verifies after a full rotation
+  ok   unknown certificate name is a usage error (rc 2)
+  ok   --ca-phase without --rotate-ca is a usage error (rc 2)
+  ok   --rotate-ca cannot be combined with --services (rc 2)
+== rotate_kubernetes
+  ok   --kubernetes renews and rolls out (rc 0)
+  ok   cert-manager renewal requested for the namespace
+  ok   StatefulSet restarted
+  ok   Deployment restarted
+  ok   --kubernetes --dry-run restarts nothing (rc 0)
+  ok   dry-run ran no rollout
+  ok   --kubernetes without cmctl is a prerequisite error (rc 4)
+== rotate_legacy_archive
+  ok   dry-run reports the legacy archive move (rc 0)
+  ok   dry-run says what it would move
+  ok   dry-run moved nothing
+  ok   rotation moves a legacy pki/archive out of the mounted tree (rc 0)
+  ok   pki/archive is gone
+  ok   the legacy set is kept under pki-archive/
+  ok   this rotation archived the previous set next to it
+  ok   pki/ contains no subdirectory
+  ok   PKI_ARCHIVE_DIR inside pki/ is refused (rc 2)
+  ok   nothing created inside pki/
+== rotate_rollback
+  ok   re-issue with a validity inside the renewal window fails verification (rc 1)
+  ok   rollback announced
+  ok   the previous certificate set is restored exactly
+  ok   the failed run left no archive inside pki/
+  ok   the failed run's archive is under pki-archive/
+== bundle_build_and_verify
+  ok   real build (--skip-images --release) (rc 0)
+  ok   bundle tarball produced
+  ok   tarball sha256 sidecar produced
+  ok   sidecar matches the tarball
+  ok   single top-level directory vendetta-stack-airgap-<tag>
+  ok   all entries are owned by 0/0
+  ok   mtimes are the fixed source-date-epoch
+  ok   secrets/pki/pki-archive/.env never ship in the bundle
+  ok   tar has SBOM, SHA256SUMS, manifest, UNSIGNED marker
+  ok   tar has model blobs and the models.json pins
+  ok   build marks the bundle UNSIGNED without cosign (rc 0)
+  ok   UNSIGNED warning
+  ok   the tarball is reproducible (same inputs, same epoch → same sha256)
+  ok   SHA256SUMS lists its files in sorted order
+  ok   SBOM is CycloneDX 1.5
+  ok   every non-file SBOM component has a purl
+  ok   every file component carries a SHA-256 hash
+  ok   bin/ollama hash in the SBOM equals the file
+  ok   the output directory is not bundled into the config tree
+  ok   verify-bundle on the tarball (rc 0)
+  ok   verification passes with the UNSIGNED warning
+  ok   verify-bundle on the extracted directory (rc 0)
+  ok   verify-bundle writes a verification record (rc 0)
+  ok   record <bundle>.verified.json written
+  ok   --require-signature rejects an UNSIGNED bundle (rc 3)
+  ok   --expect-release-tag mismatch (rc 2)
+  ok   --expect-release-tag match (rc 0)
+  ok   --expect-sha256 with a wrong digest (rc 2)
+  ok   --expect-sha256 with the right digest (rc 0)
+  ok   missing bundle path is an I/O error (exit 1) (rc 1)
+== bundle_dry_run
+  ok   build-airgap-bundle --dry-run (rc 0)
+  ok   dry-run writes no dist/
+  ok   dry-run lists the models
+  ok   dry-run lists the Ollama binary
+  ok   dry-run says the key archives are excluded
+  ok   dry-run states the signing outcome
+  ok   inputs untouched
+  ok   --dry-run with --require-signature only warns (rc 0)
+  ok   dry-run warns that a real run would exit 3
+== bundle_images_and_sandbox
+  ok   dry-run with images (all present) (rc 0)
+  ok   dry-run lists the sandbox tarball
+  ok   dry-run lists built image fluentd
+  ok   dry-run lists built image llm-gateway
+  ok   dry-run lists built image errow-mcp
+  ok   dry-run lists built image errow
+  ok   dry-run lists built image errow-feedback
+  ok   dry-run lists built image errow-shipper
+  ok   dry-run lists built image ollama
+  ok   ollama-lb and mock-ollama are not bundled images
+  ok   dry-run with the sandbox image missing (rc 0)
+  ok   dry-run flags the missing sandbox image
+  ok   real build with images + sandbox (--release --build) (rc 0)
+  ok   --build runs docker compose build for every profile
+  ok   errow-sandbox.tar sits in the bundle root
+  ok   the sandbox is not duplicated under images/
+  ok   images/ has vendetta-stack/fluentd
+  ok   images/ has vendetta-stack/llm-gateway
+  ok   images/ has vendetta-stack/errow-mcp
+  ok   images/ has vendetta-stack/errow
+  ok   images/ has vendetta-stack/errow-feedback
+  ok   images/ has vendetta-stack/errow-shipper
+  ok   images/ has vendetta-stack/ollama
+  ok   no ollama-lb / mock-ollama image tarballs
+  ok   SHA256SUMS lists errow-sandbox.tar
+  ok   errow-sandbox.tar hash in SHA256SUMS is correct
+  ok   SBOM has an errow-sandbox.tar container component with a purl
+  ok   SBOM hash of errow-sandbox.tar equals the file
+  ok   manifest.errowSandbox names the root tarball and image
+  ok   manifest.builtImages is the 7 compose images
+  ok   manifest.contains.errowSandbox is true
+  ok   images.tsv indexes no sandbox row
+  ok   verify-bundle accepts the bundle (--release) (rc 0)
+  ok   verify reports the sandbox archive
+  ok   verify-bundle writes a record (rc 0)
+  ok   record says the sandbox was verified
+  ok   a modified errow-sandbox.tar is an integrity failure (rc 2)
+  ok   names the sandbox tarball
+  ok   a missing errow-sandbox.tar is an integrity failure (rc 2)
+  ok   a sandbox tarball for another image is rejected (hashes consistent) (rc 2)
+  ok   names the mismatching tag
+  ok   an undeclared errow-sandbox.tar is rejected (rc 2)
+  ok   undeclared tarball reported
+  ok   a stale ollama-lb image entry is rejected (rc 2)
+  ok   ollama-lb is not a component of the stack
+  ok   --release requires every built image to be in the manifest (rc 3)
+  ok   names the missing built image
+  ok   without --release a missing built image is tolerated (rc 0)
+== bundle_images_policy
+  ok   --release without the sandbox image exits 3 (rc 3)
+  ok   names the sandbox build instructions
+  ok   --release --skip-sandbox is refused (rc 3)
+  ok   --release --exclude-image <built image> is refused (rc 3)
+  ok   names the excluded built image
+  ok   non-release build tolerates missing built images + sandbox (warns) (rc 0)
+  ok   warns about the missing built image
+  ok   warns about the missing sandbox
+  ok   no errow-sandbox.tar in the degraded bundle
+  ok   verify-bundle accepts it without --release (warns) (rc 0)
+  ok   verify warns about the absent sandbox tarball
+  ok   verify-bundle --release rejects a bundle lacking the sandbox + a built image (rc 3)
+  ok   release verify names the sandbox tarball
+  ok   release verify names the missing built image
+  ok   --skip-sandbox (non-release) leaves the sandbox out (rc 0)
+  ok   no sandbox tarball with --skip-sandbox
+  ok   built images are still bundled
+  ok   manifest.errowSandbox is null
+  ok   --skip-images skips the sandbox too (rc 0)
+== bundle_sentinel
+  ok   --release refuses the <pinned-per-release> sentinel (rc 3)
+  ok   sentinel named
+  ok   a non-release build tolerates the sentinel (staging) (rc 0)
+  ok   verify-bundle --release refuses the sentinel (exit 3) (rc 3)
+  ok   verify-bundle without --release only warns (rc 0)
+  ok   an Ollama binary that is not the pinned version is a policy failure (rc 3)
+  ok   missing Ollama binary is a prerequisite error (rc 4)
+== bundle_signing
+  ok   signed build (--cosign-key, --require-signature) (rc 0)
+  ok   SHA256SUMS.sig is inside the bundle
+  ok   no UNSIGNED marker in a signed bundle
+  ok   verify with the right public key (--require-signature) (rc 0)
+  ok   signature verified
+  ok   verify with the wrong public key (rc 2)
+  ok   --require-signature without a trust anchor is a policy failure (rc 3)
+  ok   --require-signature without cosign installed is a policy failure (rc 3)
+  ok   --require-signature build without cosign exits 3 (rc 3)
+  ok   UNSIGNED explained
+  ok   keyless signing is refused for the airgap profile (rc 3)
+== bundle_tamper
+  ok   build for the tamper tests (rc 0)
+  ok   a modified model blob is an integrity failure (rc 2)
+  ok   names SHA256SUMS mismatch
+  ok   a missing file is an integrity failure (rc 2)
+  ok   an unexpected extra file is rejected (rc 2)
+  ok   extra file named
+  ok   a symlink inside the bundle is rejected (rc 2)
+  ok   an SBOM that disagrees with the files is an integrity failure (even with a consistent SHA256SUMS) (rc 2)
+  ok   SBOM mismatch reported
+  ok   path traversal inside the tarball is rejected (rc 2)
+  ok   nothing escaped the extraction directory
+  ok   nothing escaped above the scratch root
+== images_lib
+  ok   built images are exactly the 8 compose/Helm images (no ollama-lb / mock-ollama)
+  ok   --no-sandbox drops only the sandbox
+  ok   the sandbox tag follows STACK_VERSION
+  ok   ERROW_SANDBOX_IMAGE overrides the sandbox reference
+  ok   images_built_component names built images only
+== sync_mcp_policy
+  ok   real tree: both policy copies are byte-identical (rc 0)
+  ok   copy: --check passes (rc 0)
+  ok   drift is detected (rc 1)
+  ok   drift reported
+  ok   default mode is --check (rc 1)
+  ok   --write --dry-run changes nothing (rc 0)
+  ok   still drifting after the dry run (rc 1)
+  ok   --write syncs gateway → errow (rc 0)
+  ok   in sync after --write (rc 0)
+  ok   files are byte-identical
+  ok   --direction errow-to-gateway (rc 0)
+  ok   gateway copy now carries the errow edit
+  ok   a missing copy is drift (rc 1)
+  ok   bad direction is a usage error (rc 2)
+== health_container_ip
+  ok   precondition: nothing listens on 127.0.0.1:24220 (the host port Compose does not publish)
+  ok   precondition: nothing listens on 127.0.0.1:9103
+  ok   no routable non-loopback address on this host: container-IP success paths not exercised
+  ok   unreachable but healthy per docker → degraded (exit 1) (rc 1)
+  ok   WARN row with the documented wording
+  ok   never reported OK on docker health alone
+  ok   aggregate stays WARN
+  ok   docker health 'unhealthy' is no evidence → FAIL, unhealthy (rc 2)
+  ok   FAIL with docker health 'unhealthy'
+  ok   docker health 'starting' is no evidence → FAIL, unhealthy (rc 2)
+  ok   FAIL with docker health 'starting'
+  ok   docker health 'none' is no evidence → FAIL, unhealthy (rc 2)
+  ok   FAIL with docker health 'none'
+  ok   fixture: PATH without docker
+  ok   docker absent → unchanged FAIL (rc 2)
+  ok   plain connection refused
+  ok   no docker-based WARN
+  ok   --no-docker → unchanged FAIL (rc 2)
+  ok   --transport host never falls back to container IPs (rc 2)
+  ok   published port reachable → host path, healthy (rc 0)
+  ok   both aggregators OK via 127.0.0.1
+  ok   the host mock answered both aggregators
+  ok   no --resolve on the host path
+  ok   container IPs never inspected on the host path
+  ok   healthcheck.sh and vs_http never build an insecure curl call
+== health_invariants
+  ok   Ollama listening on 0.0.0.0:11434 → unhealthy (rc 2)
+  ok   exposure named
+  ok   Ollama bound to 127.0.0.1 only → healthy (rc 0)
+  ok   Ollama bound to ::1 only → healthy (rc 0)
+  ok   loopguard on the shipped tree (rc 0)
+  ok   loopguard OK
+  ok   fixture: the Console leg regex now admits cs3.ai.*
+  ok   loopguard detects a Console leg that admits cs3.ai.ollama (rc 2)
+  ok   telemetry loop named
+  ok   fixture: the Fluentd forward output now admits cs3.ai.ollama
+  ok   loopguard detects a forward output that admits cs3.ai.ollama (rc 2)
+  ok   forward output named
+  ok   no Fluent Bit config → loopguard SKIP, nothing verified → unhealthy (rc 2)
+  ok   SKIP row
+  ok   FailClosed violation → unhealthy (rc 2)
+  ok   FailClosedError reported
+  ok   key value never printed
+  ok   FailClosed ok in a clean environment (rc 0)
+  ok   pki: fresh certificates → healthy (rc 0)
+  ok   pki: --cert-warn-days beyond the validity → degraded (rc 1)
+  ok   expiry warning names the rotation script
+  ok   pki: no certificates → degraded (rc 1)
+  ok   bad --only name is a usage error (rc 64)
+  ok   bad --transport is a usage error (rc 64)
+== health_kubernetes
+  ok   a NodePort Service for 11434 is unhealthy (rc 2)
+  ok   Service named
+  ok   a ClusterIP Service for 11434 is fine (rc 0)
+  ok   a hostPort for 11434 is unhealthy (rc 2)
+  ok   hostPort named
+== health_levels
+  ok   healthy stack → exit 0 (rc 0)
+  ok   OpenSearch green
+  ok   Fluent Bit health + backlog
+  ok   both Fluentd aggregators
+  ok   llm-gateway ok
+  ok   audit chain intact
+  ok   errow-mcp mTLS
+  ok   errow-feedback
+  ok   dashboards/prometheus/grafana
+  ok   loopback invariant
+  ok   loop guard proven on the shipped Fluent Bit tree
+  ok   failclosed row
+  ok   pki row
+  ok   summary line
+  ok   --json report (rc 0)
+  ok   --json output is valid JSON
+  ok   --json status
+  ok   --json has per-check rows
+  ok   gateway status=degraded → exit 1 (rc 1)
+  ok   degraded explained
+  ok   spool depth over the fail threshold → degraded (rc 1)
+  ok   spool row FAIL
+  ok   HC_SPOOL_FAIL raises the threshold (rc 0)
+  ok   security model not loaded → degraded (rc 1)
+  ok   security model warning
+  ok   GATEWAY_SECURITY_ENABLED=false tolerates the missing security model (rc 0)
+  ok   no security model row when /security is disabled
+  ok   configured primary model not loaded → degraded (rc 1)
+  ok   primary model named
+  ok   broken audit chain is critical → unhealthy (exit 2) (rc 2)
+  ok   audit chain FAIL
+  ok   OpenSearch red → unhealthy (exit 2) (rc 2)
+  ok   --skip opensearch ignores that check (rc 0)
+  ok   --only restricts the checks (rc 0)
+  ok   --only: opensearch not probed
+  ok   yellow cluster + growing Fluentd buffer → degraded (rc 1)
+  ok   yellow is a warning
+  ok   Fluentd queue warning
+  ok   one aggregator down → degraded (redundancy lost) (rc 1)
+  ok   redundancy warning
+  ok   both aggregators down → unhealthy (rc 2)
+  ok   no aggregator
+  ok   OpenSearch unreachable → unhealthy (rc 2)
+  ok   every Fluentd buffer stuck → unhealthy (rc 2)
+  ok   queue FAIL
+  ok   HC_FLUENTD_QUEUE_FAIL raises the threshold (rc 1)
+  ok   no endpoint reachable at all → unhealthy (rc 2)
+== backup_dry_run_and_policy
+  ok   --help lists the exit codes (rc 0)
+  ok   --help documents restore verification
+  ok   dry-run: no network, no writes (rc 0)
+  ok   plans the repository
+  ok   plans the restore test
+  ok   plans the encrypted pki archive
+  ok   secrets are not planned without --include-secrets
+  ok   dry-run created no backup directory
+  ok   dry-run with --include-secrets plans secrets.tar.enc (rc 0)
+  ok   secrets archive planned
+  ok   passphrase never printed
+  ok   pki/ present but no passphrase file → usage error (rc 2)
+  ok   explains why
+  ok   --skip-pki needs no passphrase (rc 0)
+  ok   missing passphrase file without --create-passphrase → 2 (rc 2)
+  ok   group/world-readable passphrase file → policy refusal (3) (rc 3)
+  ok   names the fix
+  ok   refusal wrote nothing
+  ok   passphrase shorter than 16 chars → 2 (rc 2)
+  ok   --url must be https (rc 2)
+  ok   --keep 0 rejected (rc 2)
+  ok   --verify-restore needs the snapshot step (rc 2)
+  ok   --snapshot-only and --files-only conflict (rc 2)
+  ok   invalid --indices rejected (rc 2)
+  ok   --create-passphrase generates a 0600 file (rc 0)
+  ok   generated passphrase file mode
+  ok   warns to keep an offline copy
+  ok   generated passphrase is long enough
+  ok   re-run reuses the passphrase file (rc 0)
+  ok   no second generation
+== backup_files
+  ok   --files-only writes the encrypted backup set (rc 0)
+  ok   backup directory created
+  ok   has ollama-models.json
+  ok   has pki.tar.enc
+  ok   has SHA256SUMS
+  ok   has MANIFEST.json
+  ok   no secrets archive by default
+  ok   backup dir mode
+  ok   pki archive mode
+  ok   backup root mode
+  ok   SHA256SUMS verifies
+  ok   models.json copied byte-identical
+  ok   MANIFEST lists the pki archive as encrypted
+  ok   MANIFEST records kdf and cipher but no passphrase
+  ok   archive is not a plain tar
+  ok   archive does not leak the CA key in clear text
+  ok   retention pruned the two oldest backup dirs
+  ok   newer backup kept
+  ok   foreign directory untouched
+  ok   --decrypt restores the pki tree (rc 0)
+  ok   CA certificate round-trips
+  ok   CA key round-trips
+  ok   extract dir mode
+  ok   --extract-to must be empty (rc 2)
+  ok   wrong passphrase → failure (1) (rc 1)
+  ok   decryption failure explained
+  ok   nothing extracted on failure
+  ok   --decrypt of a missing archive → 2 (rc 2)
+  ok   --include-secrets adds an encrypted secrets archive (rc 0)
+  ok   secrets archive written
+  ok   secrets archive decrypts (rc 0)
+  ok   admin password archived
+  ok   backups dir excluded from the secrets archive
+  ok   archive with a path-traversal member is refused (rc 1)
+  ok   unsafe member named
+  ok   nothing escaped
+== backup_restore
+  ok   --verify-restore restores a sample into restore-test-* and removes it (rc 0)
+  ok   restore test passed
+  ok   one restore call
+  ok   data indices restored under the scratch prefix (3)
+  ok   dot indices are never restored
+  ok   scratch indices deleted (pre-clean + cleanup, 3 each)
+  ok   nothing outside restore-test-* deleted
+  ok   --restore-sample 1 restores one index (rc 0)
+  ok   one index
+  ok   restore with failed shards → failure (1) (rc 1)
+  ok   failure named
+  ok   scratch indices cleaned up even after the failure
+== backup_snapshot
+  ok   full run: repo registered, snapshot SUCCESS, retention, files (rc 0)
+  ok   snapshot named vendetta-<ts>
+  ok   summary line
+  ok   repository registered exactly once
+  ok   every request carried valid credentials
+  ok   snapshot created once
+  ok   retention deleted the two oldest vendetta-* snapshots
+  ok   newer / foreign / failed snapshots untouched
+  ok   no restore without --verify-restore
+  ok   admin password never printed
+  ok   existing repository is reused (idempotent) (rc 0)
+  ok   reuse reported
+  ok   no repository PUT when it exists
+  ok   keep 14 prunes nothing
+  ok   wrong admin password → exit 5 (rc 5)
+  ok   credentials refused
+  ok   OpenSearch unreachable → exit 5 (rc 5)
+  ok   retried with backoff
+  ok   PARTIAL snapshot → failure (1) (rc 1)
+  ok   state named
+  ok   no retention after a failed snapshot
+  ok   snapshot that never finishes → failure (1) after --wait-timeout (rc 1)
+  ok   timeout named
+  ok   SUCCESS with failed shards → failure (1) (rc 1)
+  ok   failed shards named
+== enroll_ollama_checks
+  ok   healthy node, unverified blobs, loopback address → refused for DNS discovery (2) (rc 2)
+  ok   version verified over mTLS
+  ok   11434 check
+  ok   models present
+  ok   unverified blobs are warned about
+  ok   loopback refusal explained
+  ok   nothing registered
+  ok   --version overrides the pin (rc 1)
+  ok   version mismatch named
+  ok   --models all requires gemma4:31b too (present here) (rc 2)
+  ok   --models none skips tag checks (rc 2)
+  ok   version drift → verification failure (1) (rc 1)
+  ok   drift named
+  ok   not registered
+  ok   required model missing on the node → failure (1) (rc 1)
+  ok   missing model named
+  ok   --release without a model store is refused (3) (rc 3)
+  ok   unverifiable store named
+  ok   CS3_PROFILE=airgap implies --release (3) (rc 3)
+  ok   sentinel pins under --release → policy refusal (3) (rc 3)
+  ok   sentinel named
+  ok   pinned + matching store, loopback → blobs verified, then loopback refusal (2) (rc 2)
+  ok   sha256 verified
+  ok   both required models verified
+  ok   pin mismatch → integrity refusal (3) (rc 3)
+  ok   mismatch named
+  ok   blob content not matching its digest → integrity refusal (3) (rc 3)
+  ok   tamper named
+  ok   node unreachable → exit 5 (rc 5)
+  ok   reachability explained
+  ok   client certificate not issued by the stack CA → exit 5 (rc 5)
+== enroll_ollama_register
+  ok   routable-address cases skipped: this host has no non-loopback IPv4 address
+  ok   compose worker enrols via the network alias (rc 0)
+  ok   blobs hashed in the container
+  ok   discovery is the compose alias
+  ok   blob source
+  ok   compose workers get no hosts line
+  ok   11434 published on 0.0.0.0 → policy refusal (3) (rc 3)
+  ok   published port named
+  ok   11434 published on 127.0.0.1 is fine (rc 0)
+== enroll_ollama_usage
+  ok   --help (rc 0)
+  ok   help documents the exit codes
+  ok   --node is required (rc 2)
+  ok   an address source is required (rc 2)
+  ok   --container and --local are exclusive (rc 2)
+  ok   invalid node name (rc 2)
+  ok   invalid --port (rc 2)
+  ok   --models-dir must exist (rc 2)
+  ok   --gateway-url must be https (rc 2)
+  ok   client key must be readable (rc 2)
+  ok   an unapproved model is refused (3) (rc 3)
+  ok   approved models listed
+  ok   --remove of an unknown node is a no-op (rc 0)
+  ok   reported
+== enroll_errow_drift
+  ok   server is missing a policy tool → failure (1) (rc 1)
+  ok   missing tool named
+  ok   remedy given
+  ok   no config written on drift
+  ok   server exposes a tool the policy does not allow → failure (1) (rc 1)
+  ok   extra tool named
+  ok   empty tools/list → failure (1) (rc 1)
+  ok   empty named
+  ok   unhealthy errow-mcp → failure (1) (rc 1)
+  ok   status named
+  ok   JSON-RPC initialize error → failure (1) (rc 1)
+  ok   initialize failure named
+  ok   still nothing written
+== enroll_errow_smoke
+  ok   --dry-run: all checks, no writes (rc 0)
+  ok   /health checked
+  ok   initialize answered
+  ok   tools match the policy
+  ok   would write the entry
+  ok   dry-run created no home
+  ok   enrol (rc 0)
+  ok   summary
+  ok   config written
+  ok   config mode
+  ok   sidecar mode
+  ok   errow home mode
+  ok   entry url
+  ok   entry transport
+  ok   allow-list equals the policy
+  ok   sidecar points at the stack identity
+  ok   sidecar CA
+  ok   the API token is never copied into the Errow config
+  ok   the mock served the mTLS requests
+  ok   re-enrolling is idempotent (rc 0)
+  ok   config unchanged
+  ok   sidecar unchanged
+  ok   nothing changed on disk
+  ok   no backup churn
+  ok   a stale entry is replaced, others preserved (rc 0)
+  ok   entry refreshed
+  ok   foreign entry kept
+  ok   no duplicate entry
+  ok   previous file kept as a backup
+  ok   a second entry name is appended (rc 0)
+  ok   three entries
+  ok   an existing non-list config is never overwritten (1) (rc 1)
+  ok   explained
+  ok   file untouched
+  ok   --no-config validates only (rc 0)
+  ok   no config written
+  ok   --skip-smoke still writes the entry (rc 0)
+  ok   smoke skipped in the summary
+  ok   entry written
+  ok   client certificate not in MCP_ALLOWED_CLIENTS → failure (1) (rc 1)
+  ok   allow-list named
+  ok   nothing written on failure
+  ok   a wildcard allow-list accepts any client (rc 0)
+  ok   client certificate not issued by the stack CA → exit 5 (rc 5)
+  ok   rejection explained
+  ok   errow-mcp down → exit 5 (rc 5)
+  ok   nothing written when unreachable
+  ok   unreadable mTLS key is a usage error (rc 2)
+  ok   cloud reachable with a trusted certificate (rc 0)
+  ok   cloud probe reported
+  ok   cloud with an untrusted certificate → failure (1) (rc 1)
+  ok   TLS failure named
+  ok   --skip-cloud bypasses the probe (rc 0)
+  ok   ERROW_CLOUD_URL must be https (rc 2)
+  ok   the cloud listener never saw an Authorization header
+== enroll_errow_targets
+  ok   missing targets file + --no-config: reported, not created (rc 0)
+  ok   not created
+  ok   missing targets file + --skip-smoke without --no-config creates the skeleton (rc 0)
+  ok   skeleton created
+  ok   skeleton mode
+  ok   skeleton valid
+  ok   default location is errow/config/targets.yaml (rc 0)
+  ok   default path used
+  ok   valid allow-list (rc 0)
+  ok   accepted
+  ok   /0 CIDR → policy refusal (3) (rc 3)
+  ok   refusal named
+  ok   ::/0 CIDR → policy refusal (3) (rc 3)
+  ok   invalid CIDR → verification failure (1) (rc 1)
+  ok   fail-closed explained
+  ok   unknown key → failure (1) (rc 1)
+  ok   keys named
+  ok   relative repo path → failure (1) (rc 1)
+  ok   repo path with .. → failure (1) (rc 1)
+  ok   invalid hostname → failure (1) (rc 1)
+  ok   YAML syntax error → failure (1) (rc 1)
+  ok   an entry inside a denied range is accepted but warned about (rc 0)
+  ok   denied-wins warning
+  ok   fallback parser accepts a valid file (rc 0)
+  ok   fallback parser refuses /0 (3) (rc 3)
+  ok   fallback parser refuses unknown keys (1) (rc 1)
+== enroll_errow_validation
+  ok   --help (rc 0)
+  ok   help documents the exit codes
+  ok   unknown option (rc 2)
+  ok   invalid --name (rc 2)
+  ok   --mcp-url must be https (rc 2)
+  ok   --mcp-url may not carry credentials (rc 2)
+  ok   missing token file (rc 2)
+  ok   valid token, defaults (rc 0)
+  ok   token validated
+  ok   cloud off by default
+  ok   empty skeleton is NOT created with --no-config
+  ok   no skeleton written
+  ok   token shorter than 32 chars (rc 2)
+  ok   token containing whitespace (rc 2)
+  ok   world-readable token → policy refusal (rc 3)
+  ok   mode named
+  ok   --allow-loose-token-perms downgrades to a warning (rc 0)
+  ok   warned
+  ok   token value never logged
+  ok   FailClosed: cloud LLM key under onprem → 3 (rc 3)
+  ok   FailClosedError
+  ok   key value never printed
+  ok   Errow cloud in air-gap → 3 (rc 3)
+  ok   egress named
+== enroll_agent_agent_auth
+  ok   auto prefers the agent-auth binary when installed (rc 0)
+  ok   method reported
+  ok   the shim's key was adopted
+  ok   CA, group and manager passed on argv
+  ok   the password never appears on argv
+  ok   the password is handed over as a file
+  ok   authd.pass mode
+  ok   agent-auth failure → manager refused (5) (rc 5)
+  ok   failure reported
+  ok   agent-auth success without a key → failure (1) (rc 1)
+  ok   explained
+  ok   --no-password skips the password hand-over (rc 0)
+== enroll_agent_api
+  ok   enroll through the manager API (POST /agents/insert) (rc 0)
+  ok   summary
+  ok   key decoded from the API reply
+  ok   one insert
+  ok   every request after login carried the bearer
+  ok   password never printed
+  ok   JWT never printed
+  ok   idempotent by name: no API call on re-run (rc 0)
+  ok   reused
+  ok   still one insert
+  ok   nothing changed
+  ok   --group is applied with PUT /agents/<id>/group/<g> (rc 0)
+  ok   group call made
+  ok   wrong API password → refused (5) (rc 5)
+  ok   auth failure reported
+  ok   no key stored
+  ok   --method auto without agent-auth or a password file falls back to the API (rc 0)
+  ok   api chosen
+  ok   a name the manager already holds, without a local key → refused (5) (rc 5)
+  ok   explained
+  ok   nothing inserted
+  ok   --force-reenroll deletes the stale manager-side agent first (rc 0)
+  ok   stale agent deleted
+  ok   then re-inserted
+  ok   a raw 64-hex key from the API is assembled into a client.keys line (rc 0)
+  ok   assembled
+  ok   an unrecognised key format is never stored (1) (rc 1)
+  ok   explained
+  ok   no key file
+== enroll_agent_authd
+  ok   enroll over authd with a verified manager certificate (rc 0)
+  ok   enrolled
+  ok   summary
+  ok   password never printed
+  ok   ossec.conf hint
+  ok   client.keys mode
+  ok   client.keys entry is well formed
+  ok   key never printed
+  ok   re-running is idempotent (no second enrollment) (rc 0)
+  ok   reused
+  ok   nothing changed
+  ok   the manager saw exactly one enrollment
+  ok   a second agent gets its own key; the first is kept (rc 0)
+  ok   second entry
+  ok   first entry kept
+  ok   group and IP forwarded to authd
+  ok   ossec.conf now points at the manager
+  ok   ossec.conf backed up
+  ok   ossec.conf already pointing at the manager is left alone (rc 0)
+  ok   no rewrite
+  ok   --manager as an IP address verifies against the certificate IP SAN (rc 0)
+  ok   ip enrolment
+  ok   --force-reenroll against a manager that already knows the name → refused (5) (rc 5)
+  ok   duplicate explained
+  ok   the local key survives a refused re-enrollment
+  ok   wrong authd password → refused (5) (rc 5)
+  ok   refusal reported
+  ok   wrong password never printed
+  ok   no password at all against a manager that wants one → refused (5) (rc 5)
+  ok   no key stored for a refused agent
+  ok   manager certificate not issued by the given CA → refused (5) (rc 5)
+  ok   TLS failure explained
+  ok   --allow-unverified-manager works in a dev profile (rc 0)
+  ok   loudly warned
+  ok   manager down → exit 5 (rc 5)
+  ok   no usable answer
+  ok   client.keys holds web-01..04 and web-07
+  ok   client.keys still 0640
+== enroll_agent_combined
+  ok   enroll and configure the forwarder in one run (rc 0)
+  ok   summary
+  ok   the forwarder config carries the enrolled agent id
+  ok   next steps printed
+== enroll_agent_dry_run
+  ok   --dry-run plans enrollment and forwarder without touching anything (rc 0)
+  ok   enrollment planned
+  ok   forwarder planned
+  ok   client cert issuance planned
+  ok   no vendetta home
+  ok   no forwarder dir
+  ok   password never printed
+== enroll_agent_forwarder
+  ok   render the edge forwarder with an issued client certificate (rc 0)
+  ok   certificate issued
+  ok   fluent-bit.conf
+  ok   upstream.conf
+  ok   client key mode
+  ok   pki dir mode
+  ok   client cert verifies against the stack CA
+  ok   client cert subject
+  ok   clientAuth EKU
+  ok   client key matches the cert
+  ok   two upstream nodes
+  ok   TLS verification is on for every node
+  ok   second node defaults to 24224
+  ok   tls.vhost pins the server name
+  ok   buffering is filesystem-backed
+  ok   journal input present
+  ok   events are stamped with the agent
+  ok   unenrolled id when enrollment was skipped
+  ok   no private key text inside the configs
+  ok   re-running changes nothing (rc 0)
+  ok   certificate kept
+  ok   configs unchanged
+  ok   no file changed
+  ok   --no-journal re-renders without the journal input (rc 0)
+  ok   journal input removed
+  ok   default aggregators come from EDGE_FORWARD_HOSTS (rc 0)
+  ok   env host with a custom port
+  ok   env host with the default port
+  ok   an existing client identity is installed (key 0600) (rc 0)
+  ok   installed key mode
+  ok   installed cert is the supplied one
+  ok   a key that does not match the certificate is refused (2) (rc 2)
+  ok   mismatch named
+  ok   --install-systemd without a Fluent Bit binary → prerequisite (4) (rc 4)
+  ok   the rendered config is syntax-checked with Fluent Bit --dry-run (rc 0)
+  ok   accepted
+  ok   a rejected config fails the run (1) (rc 1)
+  ok   rejection reported
+== enroll_agent_usage
+  ok   --help (rc 0)
+  ok   help documents the exit codes
+  ok   --manager is required (rc 2)
+  ok   invalid --manager (rc 2)
+  ok   invalid --authd-port (rc 2)
+  ok   invalid --agent-name (rc 2)
+  ok   invalid --group (rc 2)
+  ok   invalid --method (rc 2)
+  ok   invalid --forward-host (rc 2)
+  ok   --auth-cert needs --auth-key (rc 2)
+  ok   --client-cert needs --client-key (rc 2)
+  ok   --client-cert and --issue-client-cert conflict (rc 2)
+  ok   the forwarder needs a client identity (rc 2)
+  ok   identity options named
+  ok   authd without a password source (rc 2)
+  ok   password options named
+  ok   api method without the password file (rc 2)
+  ok   agent-auth method without the binary (rc 4)
+  ok   FailClosed: cloud LLM key under onprem → 3 (rc 3)
+  ok   FailClosedError
+  ok   unverified manager TLS is refused under onprem (3) (rc 3)
+  ok   unverified manager TLS is refused under airgap (3) (rc 3)
+  ok   nothing created by policy refusals
+
+1254 checks, 0 failed

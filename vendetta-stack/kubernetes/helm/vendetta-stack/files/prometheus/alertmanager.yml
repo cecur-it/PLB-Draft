@@ -1,0 +1,57 @@
+# Traces: PROMPT §5 Observability (alert routing), CONTRACT §2 (alertmanager 9093), §8.11
+# Alertmanager v0.27.0. Routes by `severity` (critical | warning | info) set in alerts.yml. The receivers are deliberately empty
+# (no e-mail/Slack/PagerDuty): those integrations need credentials and endpoints that exist only per site, and this stack never
+# carries secrets in config files. Alerts stay visible and silenceable in the Alertmanager UI/API (:9093) and in Grafana, which
+# has an `alertmanager` datasource. To page someone, deploy a copy of this file whose receivers add integrations that read their
+# credentials from files (webhook url_file, email auth_password_file, pagerduty routing_key_file, slack api_url_file, ...)
+# and keep the route/inhibit tree unchanged; validate it with `amtool check-config`.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: ops-warning
+  group_by: [alertname, component]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: ops-critical
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 1h
+    - matchers: [severity="warning"]
+      receiver: ops-warning
+    - matchers: [severity="info"]
+      receiver: ops-info
+      group_wait: 5m
+      repeat_interval: 24h
+
+receivers:
+  - name: ops-critical
+  - name: ops-warning
+  - name: ops-info
+
+inhibit_rules:
+  - source_matchers: [alertname="FluentdAllNodesDown"]
+    target_matchers: [component="fluentd"]
+    equal: []
+  - source_matchers: [alertname="FluentBitDown"]
+    target_matchers: [component="fluent-bit"]
+    equal: []
+  - source_matchers: [alertname="LlmGatewayDown"]
+    target_matchers: [component=~"llm-gateway|ollama|errow-mcp", alertname!="LlmGatewayDown"]
+    equal: []
+  - source_matchers: [alertname="LlmTriageLatencyP95Critical"]
+    target_matchers: [alertname="LlmTriageLatencyP95High"]
+    equal: []
+  - source_matchers: [alertname="LlmSpoolNearlyFull"]
+    target_matchers: [alertname="LlmSpoolBacklogGrowing"]
+    equal: []
+  - source_matchers: [alertname="FluentdBufferNearlyFull"]
+    target_matchers: [alertname="FluentdBufferBacklog"]
+    equal: [node, plugin_id]
+  - source_matchers: [alertname="FluentBitRetriesExhausted"]
+    target_matchers: [alertname="FluentBitOutputRetrying"]
+    equal: [instance, name]

@@ -1,0 +1,96 @@
+# llm-providers.yaml - LLM provider policy of the stack's Errow orchestrator: sovereign Ollama tier reached ONLY through the llm-gateway.
+# Traces: CONTRACT §4.4 (gateway /v1/chat/completions, bearer, allow-listed models), §4.5 (policy), §8 (Errow addenda), §11 (RUNTIME.md).
+#
+# Installed at /etc/errow/llm-providers.yaml and enforced by errow-entrypoint (stack-config.py check-llm): in every profile except
+# `cloud` the effective model (errow_LLM=openai/<CS3_MODEL_ERROW_SECURITY>, i.e. the route cs3-errow-security or its bare model tag) must be an approved model of an enabled gateway provider, and a
+# policy file that enables the direct cloud provider outside `cloud` fails closed (exit 78).
+#
+# How Errow reaches the model (Errow speaks LiteLLM; `openai/<id>` selects the OpenAI-compatible adapter):
+#   errow_LLM=openai/nemotron-3-nano:30b   LLM_API_BASE=https://llm-gateway:9101/v1   LLM_API_KEY=<llm_gateway_token file content>
+#   (the security classes are served by the agentic tier; the gateway answers /v1/chat/completions and degrades nemotron -> gemma4:31b inside the
+#    chain, logging degraded_model_fallback=true. OLLAMA_SECURITY_MODEL must therefore stay listed below.)
+#   LLM_DISABLE_STREAMING=true             (the gateway returns whole, schema-checked responses)
+#   Ollama itself (127.0.0.1:11434) is never contacted by Errow: the gateway adds the guardrails, audit, metrics and the allow-list.
+#
+# Secrets (honours errow/utils/secret_files.py, the file-path secret contract): no key appears in this file, in the environment of the
+# image, or in compose `environment:`. The gateway bearer is read by the entrypoint from LLM_GATEWAY_TOKEN_FILE (/run/secrets/llm_gateway_token)
+# and exported into the Errow process only. Errow's own TUI persistence writes env values to ~/.errow/cli-config.json through
+# write_secret_text (atomic, 0600, O_EXCL under ~/.errow/); the stack never loosens that: HOME is an ephemeral tmpfs, the entrypoint scans
+# the file for stale cloud keys before every start, and its logs redact tokens. In profile `cloud` the direct route reads the key from
+# LLM_API_KEY_FILE the same way (a path, never the value).
+version: 1
+
+gateway:
+  url_env: LLM_GATEWAY_URL                  # default https://llm-gateway:9101 (TLS from the stack PKI, trust anchor /pki/ca.crt)
+  api_path: /v1
+  api_type: chat_completions                # LlmSettings.api_type (errow_API_TYPE); Ollama/gateway implement chat completions only
+  bearer_token_file: /run/secrets/llm_gateway_token
+  request_headers:                          # optional correlation, sent through LLM_EXTRA_HEADERS from ERROW_TENANT_ID / ERROW_INCIDENT_ID
+    - X-Tenant-Id
+    - X-Incident-Id
+    - X-Request-Id
+
+defaults:
+  temperature: 0.2                          # also the gateway's own default and clamp base (llm-gateway/prompts.py)
+  streaming: false                          # LLM_DISABLE_STREAMING=true
+  timeout_seconds: 600                      # LLM_TIMEOUT; CPU-only local inference is slow, the gateway enforces INFERENCE_TIMEOUT_MS per tier
+  # strict JSON: every machine-consumed answer (alert triage, forensic analysis, retest decisions) must validate against the
+  # AIIncidentAnalysis schema (CONTRACT §4.2). The gateway enforces it on /triage and /forensic and falls back tier by tier
+  # (primary -> forensic -> deterministic heuristics); Errow's own agent loop uses tool calls, so it is not forced into JSON mode.
+  strict_json: true
+
+providers:
+  ollama-gateway:
+    kind: openai-compatible                 # litellm prefix `openai/`
+    endpoint: gateway                       # see `gateway:` above; never a direct Ollama or vendor URL
+    models:
+      - id: nemotron-3-nano:30b             # security classes are served by the agentic tier (OLLAMA_SECURITY_MODEL, INFERENCE_MODEL_ERROW_SECURITY)
+        role: errow-security
+      - id: cs3-errow-security              # the same tier as a router ROUTE (CS3_MODEL_ERROW_SECURITY): nemotron -> gemma4:31b,
+        role: errow-security                # so Errow can name the route and let the gateway own the degraded chain
+      - id: nemotron-3-nano:30b             # primary / triage tier (OLLAMA_PRIMARY_MODEL, INFERENCE_MODEL_TRIAGE)
+        role: primary
+      - id: gemma4:26b                      # forensic fallback tier (OLLAMA_FALLBACK_MODEL, INFERENCE_MODEL_FORENSIC)
+        role: forensic
+      - id: gemma4:31b                      # deep reasoning and the only security/Errow fallback (INFERENCE_MODEL_REASONING_DEEP)
+        role: security-fallback
+  cloud-direct:
+    # The ONLY place a cloud credential may exist. Disabled everywhere except profile `cloud`, and even there only with
+    # ERROW_LLM_ROUTE=direct: errow_LLM=<litellm model id>, LLM_API_BASE optional, key read from the file named by LLM_API_KEY_FILE.
+    kind: cloud-direct
+    key_file_env: LLM_API_KEY_FILE
+    models: []                              # operator's choice; not checked by the stack
+
+profiles:
+  cloud:
+    providers: [ollama-gateway, cloud-direct]
+  onprem:
+    providers: [ollama-gateway]
+  airgap:
+    providers: [ollama-gateway]
+  edge:
+    providers: [ollama-gateway]
+
+# Environment names that make a non-cloud profile refuse to start (entrypoint exit 78; names only are logged, never values; each is
+# also refused with the _FILE suffix). Keep identical to CLOUD_KEY_VARS in entrypoint.sh (tests/test_stack_config.py enforces it).
+forbidden_env:
+  - GEMINI_API_KEY
+  - GOOGLE_API_KEY
+  - DEEPSEEK_API_KEY
+  - OPENAI_API_KEY
+  - ANTHROPIC_API_KEY
+  - AZURE_API_KEY
+  - AZURE_OPENAI_API_KEY
+  - GROQ_API_KEY
+  - MISTRAL_API_KEY
+  - OPENROUTER_API_KEY
+  - COHERE_API_KEY
+  - TOGETHERAI_API_KEY
+  - XAI_API_KEY
+  - PERPLEXITYAI_API_KEY
+  - PERPLEXITY_API_KEY
+  - EXA_API_KEY
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_BEARER_TOKEN_BEDROCK
+  - GOOGLE_APPLICATION_CREDENTIALS

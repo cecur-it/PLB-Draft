@@ -1,0 +1,92 @@
+{
+  "releaseTag": "v1.0.0",
+  "updated": "2026-11-27",
+  "description": "Single source of truth for approved on-prem/air-gapped model tags of the vendetta-stack LLM tier (mirrors CS3 onboarding/models.json). sha256 values are pinned per release by scripts/pin-model-digests.mjs and must match the digest of the exact quantized weight blob shipped in that release's air-gap bundle.",
+  "tiers": {
+    "entry": {
+      "label": "Entry / edge workstation",
+      "models": ["gemma4:26b"]
+    },
+    "frontier": {
+      "label": "Frontier / reasoning tier",
+      "models": ["gemma4:31b"]
+    },
+    "agentic": {
+      "label": "Agentic tool-use tier",
+      "models": ["nemotron-3-nano:30b"]
+    },
+    "security": {
+      "label": "Cybersecurity reasoning tier (served by the agentic tier; the RAG index supplies domain knowledge)",
+      "models": []
+    },
+    "eval": {
+      "label": "Optional evaluation tier (not part of the default pull set)",
+      "models": ["qwensploit-v2:9b"]
+    }
+  },
+  "models": [
+    {
+      "id": "gemma4:26b",
+      "family": "gemma-4",
+      "variant": "MoE",
+      "activeParams": "4B",
+      "totalParams": "26B",
+      "minVramGb": 16,
+      "minSystemRamGb": 32,
+      "functionCalling": true,
+      "multimodal": true,
+      "thinkingModeConfigurable": false,
+      "tier": "entry",
+      "sha256": "a8bdd07a49b895083bb1420bb895ad9ab3e3b8f7d5cc42c7582ca0fa765eede2"
+    },
+    {
+      "id": "gemma4:31b",
+      "family": "gemma-4",
+      "variant": "Dense",
+      "activeParams": "31B",
+      "totalParams": "31B",
+      "minVramGb": 24,
+      "minSystemRamGb": 64,
+      "functionCalling": true,
+      "multimodal": true,
+      "thinkingModeConfigurable": false,
+      "tier": "frontier",
+      "sha256": "cd20f2b3f2e30239023189c04e65754b0cc7c38959665ac727461ee470df16cf"
+    },
+    {
+      "id": "nemotron-3-nano:30b",
+      "family": "nemotron-3-nano",
+      "variant": "hybrid-MoE",
+      "activeParams": "3.5B",
+      "totalParams": "30B",
+      "minVramGb": 24,
+      "minSystemRamGb": 64,
+      "functionCalling": true,
+      "multimodal": false,
+      "thinkingModeConfigurable": true,
+      "tier": "agentic",
+      "sha256": "a70437c41b3b0b768c48737e15f8160c90f13dc963f5226aabb3a160f708d1ce"
+    },
+    {
+      "id": "qwensploit-v2:9b",
+      "family": "qwensploit-v2",
+      "variant": "dense",
+      "activeParams": "9B",
+      "totalParams": "9B",
+      "minVramGb": 8,
+      "minSystemRamGb": 32,
+      "functionCalling": true,
+      "multimodal": false,
+      "thinkingModeConfigurable": false,
+      "tier": "eval",
+      "optional": true,
+      "role": "cybersecurity-reasoning-eval",
+      "safetyProfile": "heretic-ablated",
+      "quantization": "Q4_K_M",
+      "upstream": "hf.co/xtools-at/Qwensploit-V2-9B-CyberSecurity-Qwen3.5-GGUF:Q4_K_M",
+      "upstreamFallback": "hf.co/bartowski/Qwensploit-V2-9B-CyberSecurity-Qwen3.5-GGUF:Q4_K_M",
+      "neverJudge": "Qwensploit is never the output-guard/safety classifier (INFERENCE_MODEL_GUARD); its heretic ablation makes it optimistic about severity.",
+      "sha256": "2eb53a090487b2b2e4391b88f6109fe64ba32f5c95ddbd9196bc54204b88ef53"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vendetta-stack:llm-gateway:ai-incident-analysis:1",
+  "title": "AIIncidentAnalysis",
+  "description": "Strict analysis object produced by the triage/forensic models and validated by the llm-gateway. Traces: CONTRACT §4.2; CS3 server/ai/cecurAI.ts. engineUsed and gpuSeconds are injected by the gateway before validation; proposedDetectionRule/proposedRemediation are additionally required for the forensic role.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "triageSummary",
+    "severityAssessment",
+    "mitreTactic",
+    "mitreTechnique",
+    "probableRootCause",
+    "recommendedImmediateAction",
+    "confidenceScore",
+    "engineUsed"
+  ],
+  "properties": {
+    "triageSummary": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "severityAssessment": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+    "mitreTactic": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "mitreTechnique": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "probableRootCause": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "recommendedImmediateAction": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "confidenceScore": { "type": "number", "minimum": 0, "maximum": 100 },
+    "engineUsed": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "needsVerification": { "type": "boolean" },
+    "toolCalls": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool", "args"],
+        "properties": {
+          "tool": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$" },
+          "args": { "type": "object" },
+          "rationale": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "gpuSeconds": { "type": "number", "minimum": 0 },
+    "proposedDetectionRule": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "proposedRemediation": { "type": "string", "minLength": 1, "maxLength": 8000 }
+  }
+}

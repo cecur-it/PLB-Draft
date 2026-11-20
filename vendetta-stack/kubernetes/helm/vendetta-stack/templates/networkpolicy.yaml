@@ -1,0 +1,233 @@
+# Traces: CONTRACT section 2 (network topology), section 4.4 (only the gateway reaches Ollama :11443), section 8 (errow isolation), errow/feedback-loop/RUNTIME.md (K8s egress).
+{{- define "vs.np.rules" -}}
+{{- $root := .root -}}
+{{- $dir := .dir -}}
+{{- range .rules }}
+-{{- if or .peers .ns }}
+  {{ $dir }}:
+  {{- range .peers }}
+{{ include "vs.peer" (dict "root" $root "component" .) | indent 4 }}
+  {{- end }}
+  {{- with .ns }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ . }}
+  {{- end }}
+{{- end }}
+{{- with .ports }}
+  ports:
+  {{- range . }}
+    - {protocol: TCP, port: {{ . }}}
+  {{- end }}
+{{- end }}
+{{- with .udp }}
+  ports:
+  {{- range . }}
+    - {protocol: UDP, port: {{ . }}}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "vs.np" -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+  labels:
+{{ include "vs.labels" (dict "root" .root "component" "networkpolicy") | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vendetta-stack
+      app.kubernetes.io/instance: {{ .root.Release.Name }}
+    {{- if .components }}
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: {{ toJson .components }}}
+    {{- end }}
+  policyTypes: [Ingress, Egress]
+  {{- if .in }}
+  ingress:
+{{ include "vs.np.rules" (dict "root" .root "dir" "from" "rules" .in) | indent 4 }}
+  {{- end }}
+  {{- if or .out .extra }}
+  egress:
+  {{- if .out }}
+{{ include "vs.np.rules" (dict "root" .root "dir" "to" "rules" .out) | indent 4 }}
+  {{- end }}
+  {{- with .extra }}
+{{ . | indent 4 }}
+  {{- end }}
+  {{- end }}
+{{- end -}}
+
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy }}
+{{- $fluentd := list "fluentd-1" "fluentd-2" }}
+{{- $fb := list "fluent-bit" "fluent-bit-shared" }}
+{{- $feedback := list "errow-feedback" "errow-feedback-poller" }}
+{{- $ext := include "vs.egressExternal" (dict "root" . "rules" $np.externalEgress) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "networkpolicy") | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vendetta-stack
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "networkpolicy") | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: vendetta-stack
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.dnsNamespace }}
+          podSelector:
+            matchLabels:
+{{ toYaml $np.dnsPodLabels | indent 14 }}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+{{ include "vs.np" (dict "root" . "name" "opensearch" "components" (list "opensearch")
+  "in" (list
+    (dict "peers" (concat $fluentd (list "opensearch-init" "opensearch-dashboards" "grafana" "prometheus") $feedback) "ports" (list 9200))
+    (dict "peers" (list "opensearch") "ports" (list 9200 9300)))
+  "out" (list (dict "peers" (list "opensearch") "ports" (list 9200 9300)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "opensearch-init" "components" (list "opensearch-init" "opensearch-dashboards")
+  "out" (list (dict "peers" (list "opensearch") "ports" (list 9200)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "fluentd" "components" $fluentd
+  "in" (list
+    (dict "peers" $fb "ports" (list 24224))
+    (dict "peers" (list "prometheus") "ports" (list 24231)))
+  "out" (list
+    (dict "peers" (list "opensearch") "ports" (list 9200))
+    (dict "peers" (list "llm-gateway") "ports" (list 9101))
+    (dict "peers" (list "errow-feedback") "ports" (list 9102))
+    (dict "peers" (list "vendetta-manager") "ports" (list 55000)))
+  "extra" $ext) }}
+---
+{{ include "vs.np" (dict "root" . "name" "fluent-bit" "components" $fb
+  "in" (list
+    (dict "peers" (list "errow") "ports" (list $.Values.fluentBit.tuiPort))
+    (dict "peers" (list "llm-gateway") "ports" (list 9880))
+    (dict "peers" (list "prometheus") "ports" (list 2020)))
+  "out" (list (dict "peers" $fluentd "ports" (list 24224)))
+  "extra" $ext) }}
+---
+{{ include "vs.np" (dict "root" . "name" "llm-gateway" "components" (list "llm-gateway")
+  "in" (list (dict "peers" (concat $fluentd (list "errow" "prometheus") $feedback) "ports" (list 9101)))
+  "out" (list
+    (dict "peers" (list "ollama") "ports" (list 11443))
+    (dict "peers" $fb "ports" (list 9880))
+    (dict "peers" (list "errow-mcp") "ports" (list 9103)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "ollama" "components" (list "ollama")
+  "in" (list (dict "peers" (list "llm-gateway") "ports" (list 11443)))
+  "extra" (include "vs.egressExternal" (dict "root" . "rules" .Values.ollama.pullEgress))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow" "components" (list "errow")
+  "out" (list
+    (dict "peers" (list "llm-gateway") "ports" (list 9101))
+    (dict "peers" $fb "ports" (list $.Values.fluentBit.tuiPort))
+    (dict "peers" (list "errow-dind") "ports" (list 2376)))
+  "extra" (ternary $ext "" .Values.config.errowCloudEnabled)) }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow-mcp" "components" (list "errow-mcp")
+  "in" (list (dict "peers" (list "llm-gateway" "errow" "prometheus") "ports" (list 9103)))
+  "out" (list (dict "peers" (list "errow-dind") "ports" (list 2376)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow-shipper" "components" (list "errow-shipper")
+  "out" (list (dict "peers" (list "errow-dind") "ports" (list 2376)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow-dind" "components" (list "errow-dind")
+  "in" (list (dict "peers" (list "errow" "errow-mcp" "errow-shipper") "ports" (list 2376)))
+  "out" (list (dict "peers" (list "scan-target") "ports" (list 8080)))
+  "extra" (include "vs.egressExternal" (dict "root" . "rules" .Values.errow.dind.pullEgress))) }}
+{{- with .Values.errow.dind.targetEgress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: errow-dind-targets
+  labels:
+{{ include "vs.labels" (dict "root" $ "component" "networkpolicy") | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" $ "component" "errow-dind") | indent 6 }}
+  policyTypes: [Egress]
+  egress:
+    {{- range . }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+            {{- with .except }}
+            except:
+{{ toYaml . | indent 14 }}
+            {{- end }}
+      {{- with .ports }}
+      ports:
+        {{- range . }}
+        - protocol: {{ default "TCP" .protocol }}
+          port: {{ .port }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow-viewer" "components" (list "errow-viewer")
+  "in" (list (dict "ns" $np.ingressControllerNamespace "ports" (list 8765)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "errow-feedback" "components" $feedback
+  "in" (list (dict "peers" $fluentd "ports" (list 9102)) (dict "peers" (list "prometheus") "ports" (list 9102)))
+  "out" (list
+    (dict "peers" (list "vendetta-manager") "ports" (list 55000))
+    (dict "peers" (list "opensearch") "ports" (list 9200))
+    (dict "peers" (list "llm-gateway") "ports" (list 9101)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "prometheus" "components" (list "prometheus")
+  "in" (list (dict "peers" (list "grafana") "ports" (list 9090)))
+  "out" (list
+    (dict "peers" $fb "ports" (list 2020))
+    (dict "peers" $fluentd "ports" (list 24231))
+    (dict "peers" (list "llm-gateway") "ports" (list 9101))
+    (dict "peers" (list "errow-mcp") "ports" (list 9103))
+    (dict "peers" (list "alertmanager") "ports" (list 9093)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "alertmanager" "components" (list "alertmanager")
+  "in" (list (dict "peers" (list "prometheus" "grafana") "ports" (list 9093)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "grafana" "components" (list "grafana")
+  "in" (list (dict "ns" $np.ingressControllerNamespace "ports" (list 3000)))
+  "out" (list
+    (dict "peers" (list "prometheus") "ports" (list 9090))
+    (dict "peers" (list "alertmanager") "ports" (list 9093))
+    (dict "peers" (list "opensearch") "ports" (list 9200)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "vendetta-manager" "components" (list "vendetta-manager")
+  "in" (list
+    (dict "ports" (list 1514 1515))
+    (dict "peers" (list "fluent-bit" "fluent-bit-shared") "udp" (list 5140))
+    (dict "peers" (concat $fluentd $feedback) "ports" (list 55000)))) }}
+---
+{{ include "vs.np" (dict "root" . "name" "scan-target" "components" (list "scan-target")
+  "in" (list (dict "peers" (list "errow-dind") "ports" (list 8080)))) }}
+{{- end }}

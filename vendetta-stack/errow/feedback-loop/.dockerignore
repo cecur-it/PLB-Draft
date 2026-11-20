@@ -1,0 +1,5 @@
+tests/
+**/.work*
+**/__pycache__
+**/*.pyc
+.scratch

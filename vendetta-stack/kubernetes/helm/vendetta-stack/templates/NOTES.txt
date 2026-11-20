@@ -1,0 +1,37 @@
+vendetta-stack {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+Profile: {{ .Values.global.profile }}   Ollama workers: {{ .Values.ollama.mode }}   OpenSearch nodes: {{ .Values.opensearch.replicas }}
+
+Prerequisites that must exist in this namespace BEFORE the pods can start (see kubernetes/README.md):
+  Secret {{ .Values.secrets.existingSecret }}: keys opensearch_admin_password, llm_gateway_token, errow_api_token, grafana_admin_password, feedback_webhook_token, vendetta_api_password
+{{- if .Values.certManager.enabled }}
+  PKI: issued by cert-manager (Certificates {{ .Release.Namespace }}/<service>, secrets <service>-tls, CA secret vendetta-ca-root)
+{{- else }}
+  Secret {{ .Values.pki.existingSecret }}: keys ca.crt and <service>.crt / <service>.key (scripts/bootstrap.sh output in ./pki{{ if .Values.errow.sandboxEnabled }}; add --extra-services errow-dind,errow-dind-client{{ end }})
+{{- end }}
+{{- if or .Values.fluentBit.legs.console.enabled .Values.fluentBit.legs.siem.enabled }}
+  Secret {{ .Values.secrets.legsSecret }}: keys {{ .Values.fluentBit.legs.console.ingestKeyKey }} / {{ .Values.fluentBit.legs.siem.tokenKey }} for the enabled legs
+{{- end }}
+{{- if .Values.config.feedbackLive }}
+  Secret {{ .Values.secrets.approvalSecret }}: key feedback_approval_key (ERROW_FEEDBACK_LIVE=true needs a signed APPROVALS.md line too)
+{{- end }}
+{{- if and .Values.errow.enabled .Values.errow.viewer.ingress.enabled }}
+  Secrets {{ .Values.errow.viewer.ingress.basicAuthSecret }} (key auth) and {{ .Values.errow.viewer.ingress.tlsSecret }} for the viewer Ingress
+{{- end }}
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} get pods
+  kubectl -n {{ .Release.Namespace }} wait --for=condition=complete job/opensearch-init --timeout=15m
+{{- if and .Values.errow.enabled (not .Values.errow.viewer.ingress.enabled) }}
+
+The Errow viewer has no authentication of its own and no Ingress is enabled; reach it with
+  kubectl -n {{ .Release.Namespace }} port-forward svc/errow-viewer 8765:8765
+{{- end }}
+{{- if ne .Values.ollama.mode "none" }}
+
+Ollama workers are reachable only by the gateway pod (NetworkPolicy). Model preload runs in the worker pod; watch it with
+  kubectl -n {{ .Release.Namespace }} logs statefulset/ollama -c ollama -f
+{{- end }}
+{{- if eq .Values.global.profile "airgap" }}
+
+CS3_PROFILE=airgap: external legs are refused (the chart fails the render if any is enabled) and no external egress rule is created.
+{{- end }}

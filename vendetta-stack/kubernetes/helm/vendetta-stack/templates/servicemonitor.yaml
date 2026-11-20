@@ -1,0 +1,125 @@
+# Traces: PROMPT section 5 (observability), CONTRACT section 2 (metrics ports), prometheus/prometheus.yml (scrape jobs mirrored for an operator-managed Prometheus).
+{{- define "vs.sm.tls" -}}
+tlsConfig:
+  serverName: {{ .server }}
+  minVersion: TLS12
+  ca:
+    secret: {name: {{ .ca }}, key: {{ .caKey }}}
+  cert:
+    secret: {name: {{ .secret }}, key: {{ .crtKey }}}
+  keySecret: {name: {{ .secret }}, key: {{ .keyKey }}}
+{{- end -}}
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+{{- $sm := .Values.monitoring.serviceMonitor }}
+{{- $cm := .Values.certManager.enabled }}
+{{- $caSecret := ternary "vendetta-ca-root" .Values.pki.existingSecret $cm }}
+{{- $caKey := ternary "tls.crt" "ca.crt" $cm }}
+{{- $clientSecret := ternary "prometheus-tls" .Values.pki.existingSecret $cm }}
+{{- $crtKey := ternary "tls.crt" "prometheus.crt" $cm }}
+{{- $keyKey := ternary "tls.key" "prometheus.key" $cm }}
+{{- $tls := dict "ca" $caSecret "caKey" $caKey "secret" $clientSecret "crtKey" $crtKey "keyKey" $keyKey }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fluent-bit
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit") | indent 4 }}
+    {{- with $sm.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "fluent-bit") | indent 6 }}
+  endpoints:
+    - port: http
+      path: /api/v2/metrics/prometheus
+      interval: {{ $sm.interval }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fluentd
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluentd") | indent 4 }}
+    {{- with $sm.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vendetta-stack
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+      - {key: app.kubernetes.io/component, operator: In, values: [fluentd-1, fluentd-2]}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $sm.interval }}
+      honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: llm-gateway
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+    {{- with $sm.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "llm-gateway") | indent 6 }}
+    matchExpressions:
+      - {key: vendetta-stack/headless, operator: DoesNotExist}
+  endpoints:
+    - port: https
+      path: /metrics
+      scheme: https
+      interval: {{ $sm.interval }}
+      authorization:
+        type: Bearer
+        credentials: {name: {{ .Values.secrets.existingSecret }}, key: llm_gateway_token}
+{{ include "vs.sm.tls" (merge (dict "server" "llm-gateway") $tls) | indent 6 }}
+{{- if .Values.errow.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: errow-mcp
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-mcp") | indent 4 }}
+    {{- with $sm.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-mcp") | indent 6 }}
+  endpoints:
+    - port: https
+      path: /metrics
+      scheme: https
+      interval: {{ $sm.interval }}
+{{ include "vs.sm.tls" (merge (dict "server" "errow-mcp") $tls) | indent 6 }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: errow-feedback
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback") | indent 4 }}
+    {{- with $sm.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-feedback") | indent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ $sm.interval }}
+{{- end }}
+{{- end }}

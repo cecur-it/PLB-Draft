@@ -1,0 +1,105 @@
+<!--
+cs3-decoder.xml — decoders for the host-log streams CS3 routes into the manager (host.auth, host.audit,
+host.endpoint, host.network). Rule IDs live in the reserved CS3 block 10120-10199 (cs3-rules.xml).
+
+Installed by 05-cs3-manager-integration.sh as /var/ossec/etc/decoders/0001-cs3-decoder.xml — the numeric prefix is
+load order, not decoration. Wazuh compiles decoders in lexical file order and the stock ruleset ships broad
+`sshd`/`sudo`/`auditd` decoders; loaded after them, ours never matched and the stock rules alerted instead of the
+CS3 block. Do not drop the prefix.
+
+These decoders are deliberately narrow. remoted has already stripped the PRI and split the RFC3164 header the fluent
+bit manager leg writes, so `program_name` is the discriminator and the payload is the part after `sshd[9]:`.
+
+`program_name` here is a literal or a `|` alternation, NOT a regex: `^.*$` never matches anything, `^sshd$` and
+`^sshd$|^sshd-session$` both do. Top-level decoders also cannot match on <prematch> alone — they need a
+`program_name`/`hostname` first stage and prematch on the child.
+-->
+
+<decoder name="cs3-sshd">
+  <program_name>^sshd$|^sshd-session$</program_name>
+</decoder>
+
+<decoder name="cs3-sshd-failed">
+  <parent>cs3-sshd</parent>
+  <prematch>Failed password for|Failed publickey for|Invalid user </prematch>
+  <regex>(\S+) from (\S+) port (\d+)</regex>
+  <order>user, srcip, srcport</order>
+</decoder>
+
+<!-- prematch is a plain OS_Regex fragment here: groups in prematch fail to compile, so one decoder per method. -->
+<decoder name="cs3-sshd-accepted">
+  <parent>cs3-sshd</parent>
+  <prematch>Accepted password for </prematch>
+  <regex>Accepted password for (\S+) from (\S+) port (\d+)</regex>
+  <order>user, srcip, srcport</order>
+</decoder>
+
+<decoder name="cs3-sshd-accepted-key">
+  <parent>cs3-sshd</parent>
+  <prematch>Accepted publickey for </prematch>
+  <regex>Accepted publickey for (\S+) from (\S+) port (\d+)</regex>
+  <order>user, srcip, srcport</order>
+</decoder>
+
+<decoder name="cs3-sudo">
+  <program_name>^sudo$</program_name>
+</decoder>
+
+<!-- Sequential extraction via `offset=after_regex`, the same idiom the stock sudo decoders use: a mid-pattern
+     wildcard swallows the rest of the line because OS_Regex has no backtracking. In OS_Regex the "any character"
+     wildcard is \. — a bare `.` is a literal dot, so `.*` silently never matches. -->
+<decoder name="cs3-sudo-fields">
+  <parent>cs3-sudo</parent>
+  <prematch>COMMAND=</prematch>
+  <regex>^(\S+) : </regex>
+  <order>srcuser</order>
+</decoder>
+
+<decoder name="cs3-sudo-fields">
+  <parent>cs3-sudo</parent>
+  <regex offset="after_regex">USER=(\S+)</regex>
+  <order>dstuser</order>
+</decoder>
+
+<decoder name="cs3-sudo-fields">
+  <parent>cs3-sudo</parent>
+  <regex offset="after_regex">COMMAND=(\.+)</regex>
+  <order>command</order>
+</decoder>
+
+<decoder name="cs3-sudo-authfail">
+  <parent>cs3-sudo</parent>
+  <prematch>authentication failure|incorrect password attempts</prematch>
+  <regex>user=(\S+)</regex>
+  <order>srcuser</order>
+</decoder>
+
+<decoder name="cs3-auditd">
+  <program_name>^audit$|^auditd$</program_name>
+</decoder>
+
+<decoder name="cs3-auditd-exec">
+  <parent>cs3-auditd</parent>
+  <prematch>type=EXECVE|type=SYSCALL</prematch>
+  <regex>comm="(\S+)"</regex>
+  <order>command</order>
+</decoder>
+
+<decoder name="cs3-systemd">
+  <program_name>^systemd$|^kernel$</program_name>
+</decoder>
+
+<!-- One decoder per branch: an alternation in <regex> leaves the group of the unused branch empty. -->
+<decoder name="cs3-systemd-failure">
+  <parent>cs3-systemd</parent>
+  <prematch>Failed to start|Out of memory|OOM</prematch>
+  <regex>Failed to start (\S+)</regex>
+  <order>service</order>
+</decoder>
+
+<decoder name="cs3-systemd-segfault">
+  <parent>cs3-systemd</parent>
+  <prematch>segfault</prematch>
+  <regex>(\S+) segfault</regex>
+  <order>service</order>
+</decoder>

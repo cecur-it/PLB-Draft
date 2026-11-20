@@ -1,0 +1,1252 @@
+# Traces: PROMPT §1 (Tiers 1-5), §2.3; CONTRACT §1 (image pins), §2 (ports, names, networks, secrets, PKI, volumes), §8 (topology), §11 (RUNTIME)
+#
+# vendetta-stack — Compose v2. Everything is selected by profiles and the environment (.env rendered by scripts/bootstrap.sh,
+# or .env.smoke for the smoke test); there is no docker-compose.override.yml.
+#
+#   always on        opensearch (+ opensearch-init), fluentd-1/2, fluent-bit, prometheus, alertmanager, grafana,
+#                    llm-gateway + ollama-lb, errow-mcp, errow-feedback, errow-shipper
+#   dashboards       opensearch-dashboards
+#   mock-llm         mock-ollama + mock-ollama-proxy (CI default Ollama worker)
+#   llm              ollama-1 + ollama-1-proxy (real worker; add -f docker-compose.gpu.yml for NVIDIA)
+#   nginx-lb         ollama-lb-nginx, the NGINX alternative to ollama-lb (set OLLAMA_LB_HAPROXY_REPLICAS=0 to switch)
+#   errow            errow, errow-dind, errow-viewer
+#   lab              scan-target (the only host the scanner may touch)
+#   manager          vendetta-manager
+#   poller           errow-feedback-poller (vendetta-to-errow.sh every ERROW_FEEDBACK_POLL_INTERVAL seconds)
+#   test             sink, smoke-runner
+#
+# Network segmentation here is coarse (Compose cannot express per-pod policy); the Kubernetes chart enforces the strict
+# NetworkPolicies. inference is `internal`: only the gateway pod and the Ollama workers are on it, and Ollama is never published.
+#
+# Host prerequisite Compose cannot set: `sysctl -w vm.max_map_count=262144` (persist it in /etc/sysctl.d) or OpenSearch exits at start.
+# Bring-up:   scripts/bootstrap.sh                                          secrets/, pki/ and .env
+#             docker compose --profile mock-llm --profile errow --profile lab up -d --build --wait
+#             docker compose --env-file .env.smoke --profile mock-llm --profile test up -d --build --wait      (smoke environment)
+#             docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile llm up -d --build --wait   (real Ollama on NVIDIA)
+# Switch to the NGINX balancer: OLLAMA_LB_HAPROXY_REPLICAS=0 docker compose --profile nginx-lb up -d   (restart the balancer after the gateway).
+name: vendetta-stack
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-5}"
+
+x-hardened: &hardened
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging: *logging
+
+# Group that may read the 0640 keys/secrets written by `scripts/bootstrap.sh --key-group <gid>`.
+x-key-group: &key-group ["${STACK_KEY_GID:-10001}"]
+
+x-fluentd-environment: &fluentd-environment
+  FLUENTD_LOG_LEVEL: ${FLUENTD_LOG_LEVEL:-info}
+  FLUENTD_WORKERS: ${FLUENTD_WORKERS:-1}
+  FLUENTD_OS_BUFFER_LIMIT: ${FLUENTD_OS_BUFFER_LIMIT:-2GB}
+  OPENSEARCH_URL: https://opensearch:9200
+  OPENSEARCH_USER: ${OPENSEARCH_USER:-admin}
+  LLM_GATEWAY_URL: https://llm-gateway:9101
+  LLM_TRIAGE_VENDETTA_SEVERITY_REGEX: ${LLM_TRIAGE_VENDETTA_SEVERITY_REGEX:-^(medium|high|critical)$$}
+  LLM_TRIAGE_ERROW_SEVERITY_REGEX: ${LLM_TRIAGE_ERROW_SEVERITY_REGEX:-^$$}
+  ERROW_FEEDBACK_URL: http://errow-feedback:9102/errow-finding
+  ERROW_FEEDBACK_LIVE: ${ERROW_FEEDBACK_LIVE:-false}
+  ERROW_FEEDBACK_SEVERITY_REGEX: ${ERROW_FEEDBACK_SEVERITY_REGEX:-^critical$$}
+  ERROW_FEEDBACK_AR_COMMAND: ${ERROW_FEEDBACK_AR_COMMAND:-!host-isolate.sh}
+  VENDETTA_EXECD_AGENT_REGEX: ${VENDETTA_EXECD_AGENT_REGEX:-^$$}
+  VENDETTA_API_URL: https://vendetta-manager:55000
+  VENDETTA_API_USER: ${VENDETTA_API_USER:-wazuh-wui}
+  CS3_AGGREGATOR_LEGS: ${CS3_AGGREGATOR_LEGS:-}
+  CS3_ESOC_URL: ${CS3_ESOC_URL:-}
+  CS3_ESOC_TOKEN_FILE: ${CS3_ESOC_TOKEN_FILE:-}
+  CS3_SIEM_URL: ${CS3_SIEM_URL:-}
+  CS3_SIEM_TOKEN_FILE: ${CS3_SIEM_TOKEN_FILE:-}
+  CS3_SIEM_AUTH_SCHEME: ${CS3_SIEM_AUTH_SCHEME:-Bearer}
+  ERROW_CLOUD_ENABLED: ${ERROW_CLOUD_ENABLED:-false}
+  ERROW_CLOUD_URL: ${ERROW_CLOUD_URL:-https://app.errow.ai}
+
+x-fluentd: &fluentd
+  <<: *hardened
+  image: vendetta-stack/fluentd:${STACK_VERSION:-1.0.0}
+  user: "999:999"
+  group_add: *key-group
+  tmpfs:
+    - /fluentd/etc/enabled.d:uid=999,gid=999,mode=0755
+    - /run/fluentd:uid=999,gid=999,mode=0755
+    # Ruby's supervisor/serverengine create lock dirs and the worker socket under /tmp
+    - /tmp:uid=999,gid=999,mode=0700
+  secrets:
+    - opensearch_admin_password
+    - llm_gateway_token
+    - feedback_webhook_token
+    - errow_api_token
+    - vendetta_api_password
+  healthcheck:
+    test: ["CMD", "ruby", "-rnet/http", "-e", "r = Net::HTTP.get_response(URI('http://127.0.0.1:24220/api/plugins.json')); exit(r.is_a?(Net::HTTPSuccess) ? 0 : 1)"]
+    interval: 15s
+    timeout: 5s
+    start_period: 45s
+    retries: 4
+  deploy:
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: 512m
+
+x-haproxy-hardening: &haproxy-hardening
+  <<: *hardened
+  image: ${HAPROXY_IMAGE:?HAPROXY_IMAGE is required (see .env.example)}
+  group_add: *key-group
+
+services:
+  # Owns the named volumes whose first writer would otherwise be root (Docker only copies image ownership into a volume for the
+  # first container that mounts it, and several volumes are shared by images with different users).
+  volume-init:
+    <<: *hardened
+    image: ${BUSYBOX_IMAGE:?BUSYBOX_IMAGE is required (see .env.example)}
+    restart: "no"
+    user: "0:0"
+    cap_add: [CHOWN]
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        chown 10001:10001 /v/fluentbit-storage /v/errow-runs /v/errow-ndjson /v/errow-shipper-state /v/feedback-loop /v/llm-gateway-spool
+        chown 999:999 /v/fluentd-buffer-1 /v/fluentd-buffer-2
+        chown 1000:1000 /v/opensearch-data /v/opensearch-snapshots
+        chown 65534:65534 /v/prometheus /v/alertmanager
+        chown 472:0 /v/grafana
+    volumes:
+      - fluentbit-storage:/v/fluentbit-storage
+      - errow-runs:/v/errow-runs
+      - errow-ndjson:/v/errow-ndjson
+      - errow-shipper-state:/v/errow-shipper-state
+      - feedback-loop:/v/feedback-loop
+      - llm-gateway-spool:/v/llm-gateway-spool
+      - fluentd-buffer-1:/v/fluentd-buffer-1
+      - fluentd-buffer-2:/v/fluentd-buffer-2
+      - opensearch-data:/v/opensearch-data
+      - opensearch-snapshots:/v/opensearch-snapshots
+      - prometheus:/v/prometheus
+      - alertmanager:/v/alertmanager
+      - grafana:/v/grafana
+    networks: [management]
+    healthcheck:
+      disable: true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 32m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Tier 3 — OpenSearch (single node; vm.max_map_count=262144 must be set on the Docker host, see README)
+  # ------------------------------------------------------------------------------------------------------------------
+  opensearch:
+    <<: *hardened
+    image: ${OPENSEARCH_IMAGE:?OPENSEARCH_IMAGE is required (see .env.example)}
+    read_only: false
+    entrypoint: ["/opensearch/entrypoint.sh"]
+    group_add: *key-group
+    environment:
+      OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+      OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_admin_password
+      OPENSEARCH_CLUSTER_NAME: ${OPENSEARCH_CLUSTER_NAME:-vendetta-stack}
+      OPENSEARCH_MEMORY_LOCK: ${OPENSEARCH_MEMORY_LOCK:-true}
+      NODE_NAME: opensearch
+      NODE_BOX_TYPE: ${NODE_BOX_TYPE:-hot}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    secrets:
+      - opensearch_admin_password
+    volumes:
+      - ./opensearch:/opensearch:ro
+      - ./opensearch/${OPENSEARCH_CONFIG_FILE:-opensearch.single-node.yml}:/usr/share/opensearch/config/opensearch.yml:ro
+      - ./pki:/usr/share/opensearch/config/certs:ro
+      - opensearch-data:/usr/share/opensearch/data
+      - opensearch-snapshots:/usr/share/opensearch/snapshots
+    networks: [storage]
+    ports:
+      - "${OPENSEARCH_BIND:-127.0.0.1}:${OPENSEARCH_PORT:-9200}:9200"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS --cacert /usr/share/opensearch/config/certs/ca.crt -u "admin:$$(cat /run/secrets/opensearch_admin_password)" 'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
+      interval: 15s
+      timeout: 10s
+      start_period: 120s
+      retries: 10
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: ${OPENSEARCH_MEM_LIMIT:-1536m}
+
+  opensearch-init:
+    <<: *hardened
+    image: ${OPENSEARCH_IMAGE:?OPENSEARCH_IMAGE is required (see .env.example)}
+    read_only: false
+    restart: "no"
+    entrypoint: ["/opensearch/apply.sh"]
+    group_add: *key-group
+    environment:
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USER: ${OPENSEARCH_USER:-admin}
+      OPENSEARCH_CA: /pki/ca.crt
+      OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_admin_password
+      OPENSEARCH_EXPECTED_NODES: ${OPENSEARCH_EXPECTED_NODES:-1}
+      OPENSEARCH_WAIT_TIMEOUT: ${OPENSEARCH_WAIT_TIMEOUT:-300}
+      OPENSEARCH_APPLY_REPLICAS: ${OPENSEARCH_APPLY_REPLICAS:-auto}
+    secrets:
+      - opensearch_admin_password
+    volumes:
+      - ./opensearch:/opensearch:ro
+      - ./pki:/pki:ro
+    networks: [storage]
+    healthcheck:
+      disable: true
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+  opensearch-dashboards:
+    <<: *hardened
+    profiles: [dashboards]
+    image: ${DASHBOARDS_IMAGE:?DASHBOARDS_IMAGE is required (see .env.example)}
+    read_only: false
+    entrypoint: ["/opensearch/dashboards/entrypoint.sh"]
+    group_add: *key-group
+    environment:
+      OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_admin_password
+    secrets:
+      - opensearch_admin_password
+    volumes:
+      - ./opensearch:/opensearch:ro
+      - ./opensearch/dashboards/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro
+      - ./pki:/pki:ro
+    networks: [management, storage]
+    ports:
+      - "${DASHBOARDS_BIND:-127.0.0.1}:${DASHBOARDS_PORT:-5601}:5601"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS -u "admin:$$(cat /run/secrets/opensearch_admin_password)" http://localhost:5601/api/status >/dev/null
+      interval: 15s
+      timeout: 10s
+      start_period: 90s
+      retries: 10
+    depends_on:
+      opensearch-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Tier 2 — Fluentd aggregators (active-active pair, each with its own file buffer)
+  # ------------------------------------------------------------------------------------------------------------------
+  fluentd-1:
+    <<: *fluentd
+    # fluentd-1 owns the build of the shared image; a second build of the same tag races in the exporter ("already exists").
+    build:
+      context: ./fluentd
+      dockerfile: Dockerfile
+      args:
+        FLUENTD_BASE: ${FLUENTD_BASE_IMAGE:?FLUENTD_BASE_IMAGE is required (see .env.example)}
+    environment:
+      <<: *fluentd-environment
+      FLUENTD_NODE_ID: "1"
+    volumes:
+      - ./pki:/pki:ro
+      - ${CS3_LEGS_DIR:-./secrets/cs3-legs}:/run/cs3-legs:ro
+      - fluentd-buffer-1:/var/log/fluentd
+    networks:
+      aggregation:
+        aliases: [fluentd-1]
+      storage:
+      management:
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+      opensearch-init:
+        condition: service_completed_successfully
+
+  fluentd-2:
+    <<: *fluentd
+    pull_policy: never   # uses the image built by fluentd-1
+    environment:
+      <<: *fluentd-environment
+      FLUENTD_NODE_ID: "2"
+    volumes:
+      - ./pki:/pki:ro
+      - ${CS3_LEGS_DIR:-./secrets/cs3-legs}:/run/cs3-legs:ro
+      - fluentd-buffer-2:/var/log/fluentd
+    networks:
+      aggregation:
+        aliases: [fluentd-2]
+      storage:
+      management:
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+      opensearch-init:
+        condition: service_completed_successfully
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Tier 1 — Fluent Bit edge collector
+  # ------------------------------------------------------------------------------------------------------------------
+  fluent-bit:
+    <<: *hardened
+    image: ${FLUENT_BIT_IMAGE:?FLUENT_BIT_IMAGE is required (see .env.example)}
+    entrypoint: ["/etc/fluent-bit/entrypoint.sh"]
+    user: "10001:10001"
+    group_add:
+      - "${STACK_KEY_GID:-10001}"
+      - "${VENDETTA_LOGS_GID:-999}"
+    environment:
+      CS3_PROFILE: ${CS3_PROFILE:-cloud}
+      FLB_LOG_LEVEL: ${FLB_LOG_LEVEL:-info}
+      FLB_FORWARD_TLS: ${FLB_FORWARD_TLS:-on}
+      FLB_FORWARD_TLS_VERIFY: ${FLB_FORWARD_TLS_VERIFY:-on}
+      FLB_FORWARD_STORAGE_LIMIT: ${FLB_FORWARD_STORAGE_LIMIT:-2G}
+      CS3_EPS_LIMIT: ${CS3_EPS_LIMIT:-500}
+      CS3_MESSAGE_MAX_CHARS: ${CS3_MESSAGE_MAX_CHARS:-8000}
+      ERROW_TUI_PORT: ${ERROW_TUI_PORT:-24225}
+      CFGAUDIT_ENABLED: ${CFGAUDIT_ENABLED:-false}
+      CFGAUDIT_REPORTS_DIR: /var/log/cfgaudit
+      CS3_CONSOLE_ENABLED: ${CS3_CONSOLE_ENABLED:-false}
+      CS3_HOST: ${CS3_HOST:-localhost}
+      CS3_PORT: ${CS3_PORT:-443}
+      CS3_TLS: ${CS3_TLS:-On}
+      CS3_INGEST_KEY: ${CS3_INGEST_KEY:-}
+      CS3_INGEST_KEY_FILE: ${CS3_INGEST_KEY_FILE:-}
+      CS3_ESOC_ENABLED: ${CS3_ESOC_ENABLED:-false}
+      CS3_ESOC_HOST: ${CS3_ESOC_HOST:-localhost}
+      CS3_ESOC_PORT: ${CS3_ESOC_PORT:-4317}
+      CS3_ESOC_GRPC: ${CS3_ESOC_GRPC:-On}
+      CS3_ESOC_TLS: ${CS3_ESOC_TLS:-On}
+      CS3_SIEM_ENABLED: ${CS3_SIEM_ENABLED:-false}
+      CS3_SIEM_HOST: ${CS3_SIEM_HOST:-localhost}
+      CS3_SIEM_PORT: ${CS3_SIEM_PORT:-443}
+      CS3_SIEM_URI: ${CS3_SIEM_URI:-/v1/events}
+      CS3_SIEM_TLS: ${CS3_SIEM_TLS:-On}
+      CS3_SIEM_FORMAT: ${CS3_SIEM_FORMAT:-json_lines}
+      CS3_SIEM_AUTH_SCHEME: ${CS3_SIEM_AUTH_SCHEME:-Bearer}
+      CS3_SIEM_TOKEN: ${CS3_SIEM_TOKEN:-}
+      CS3_SIEM_TOKEN_FILE: ${CS3_SIEM_TOKEN_FILE:-}
+      CS3_MANAGER_ENABLED: ${CS3_MANAGER_ENABLED:-false}
+      CS3_MANAGER_HOST: ${CS3_MANAGER_HOST:-vendetta-manager}
+      CS3_MANAGER_PORT: ${CS3_MANAGER_PORT:-5140}
+      FLB_MANAGER_ALERTS_PATH: ${FLB_MANAGER_ALERTS_PATH:-/var/vendetta/logs/alerts/alerts.json}
+    tmpfs:
+      - /etc/fluent-bit/enabled.d:uid=10001,gid=10001,mode=0755
+    volumes:
+      - ./fluent-bit:/etc/fluent-bit:ro
+      - ./pki:/pki:ro
+      - ${CS3_LEGS_DIR:-./secrets/cs3-legs}:/run/cs3-legs:ro
+      - fluentbit-storage:/var/log/fluent-bit
+      - errow-ndjson:/var/log/errow:ro
+      - ${CFGAUDIT_REPORTS_DIR:-./data/cfgaudit}:/var/log/cfgaudit:ro
+      - vendetta-logs:/var/vendetta/logs:ro
+      - errow-shipper-state:/var/lib/errow-shipper:ro
+    networks: [edge, aggregation, management]
+    ports:
+      - "${FLUENT_BIND:-127.0.0.1}:${FLUENT_BIT_FORWARD_PORT:-24224}:24224"
+      - "${FLUENT_BIND:-127.0.0.1}:${FLUENT_BIT_HTTP_PORT:-9880}:9880"
+      - "${FLUENT_BIND:-127.0.0.1}:${FLUENT_BIT_METRICS_PORT:-2020}:2020"
+    healthcheck:
+      test: ["CMD", "/etc/fluent-bit/entrypoint.sh", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Monitoring
+  # ------------------------------------------------------------------------------------------------------------------
+  prometheus:
+    <<: *hardened
+    image: ${PROMETHEUS_IMAGE:?PROMETHEUS_IMAGE is required (see .env.example)}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+    group_add: *key-group
+    secrets:
+      - llm_gateway_token
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - ./pki:/pki:ro
+      - prometheus:/prometheus
+    networks: [aggregation, management]
+    ports:
+      - "${PROMETHEUS_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+
+  alertmanager:
+    <<: *hardened
+    image: ${ALERTMANAGER_IMAGE:?ALERTMANAGER_IMAGE is required (see .env.example)}
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager:/alertmanager
+    networks: [management]
+    ports:
+      - "${ALERTMANAGER_BIND:-127.0.0.1}:${ALERTMANAGER_PORT:-9093}:9093"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  grafana:
+    <<: *hardened
+    image: ${GRAFANA_IMAGE:?GRAFANA_IMAGE is required (see .env.example)}
+    group_add: *key-group
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_LOG_MODE: console
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+    secrets:
+      - grafana_admin_password
+      - opensearch_admin_password
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./pki/ca.crt:/pki/ca.crt:ro
+      - grafana:/var/lib/grafana
+    networks: [management, storage]
+    ports:
+      - "${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health | grep -q '\"database\": \"ok\"'"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Tier 4 — llm-gateway and its Ollama load balancer (the LB shares the gateway network namespace)
+  # ------------------------------------------------------------------------------------------------------------------
+  llm-gateway:
+    <<: *hardened
+    image: vendetta-stack/llm-gateway:${STACK_VERSION:-1.0.0}
+    build:
+      context: ./llm-gateway
+      dockerfile: Dockerfile
+      args:
+        STACK_VERSION: ${STACK_VERSION:-1.0.0}
+    user: "10001:10001"
+    group_add: *key-group
+    environment:
+      CS3_PROFILE: ${CS3_PROFILE:-cloud}
+      CS3_LLM_MODE: ${CS3_LLM_MODE:-local}
+      CS3_MESSAGE_MAX_CHARS: ${CS3_MESSAGE_MAX_CHARS:-8000}
+      OLLAMA_BASE_URL: http://127.0.0.1:11434/v1
+      CS3_MODEL_TRIAGE: ${CS3_MODEL_TRIAGE:-}
+      CS3_MODEL_REASONING: ${CS3_MODEL_REASONING:-}
+      CS3_MODEL_REASONING_DEEP: ${CS3_MODEL_REASONING_DEEP:-}
+      CS3_MODEL_SECURITY: ${CS3_MODEL_SECURITY:-}
+      CS3_MODEL_ERROW_SECURITY: ${CS3_MODEL_ERROW_SECURITY:-}
+      OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-nemotron-3-nano:30b}
+      OLLAMA_FALLBACK_MODEL: ${OLLAMA_FALLBACK_MODEL:-gemma4:26b}
+      OLLAMA_SECURITY_MODEL: ${OLLAMA_SECURITY_MODEL:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_TRIAGE: ${INFERENCE_MODEL_TRIAGE:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_FORENSIC: ${INFERENCE_MODEL_FORENSIC:-gemma4:26b}
+      INFERENCE_MODEL_SECURITY: ${INFERENCE_MODEL_SECURITY:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_ERROW_SECURITY: ${INFERENCE_MODEL_ERROW_SECURITY:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_REASONING_DEEP: ${INFERENCE_MODEL_REASONING_DEEP:-gemma4:31b}
+      INFERENCE_MODEL_GUARD: ${INFERENCE_MODEL_GUARD:-gemma4:26b}
+      OLLAMA_REASONING_DEEP_MODEL: ${OLLAMA_REASONING_DEEP_MODEL:-${INFERENCE_MODEL_REASONING_DEEP:-gemma4:31b}}
+      OLLAMA_ERROW_SECURITY_MODEL: ${OLLAMA_ERROW_SECURITY_MODEL:-${INFERENCE_MODEL_ERROW_SECURITY:-nemotron-3-nano:30b}}
+      INFERENCE_MAX_TOKENS_TRIAGE: ${INFERENCE_MAX_TOKENS_TRIAGE:-1024}
+      INFERENCE_MAX_TOKENS_SECURITY: ${INFERENCE_MAX_TOKENS_SECURITY:-2048}
+      INFERENCE_MAX_TOKENS_ERROW: ${INFERENCE_MAX_TOKENS_ERROW:-4096}
+      GATEWAY_CACHE_TRIAGE: ${GATEWAY_CACHE_TRIAGE:-true}
+      GATEWAY_CACHE_SECURITY: ${GATEWAY_CACHE_SECURITY:-false}
+      GATEWAY_CACHE_ERROW: ${GATEWAY_CACHE_ERROW:-false}
+      INFERENCE_TIMEOUT_MS: ${INFERENCE_TIMEOUT_MS:-60000}
+      INFERENCE_GPU_SHARE: ${INFERENCE_GPU_SHARE:-1.0}
+      GATEWAY_MTLS: ${GATEWAY_MTLS:-optional}
+      GATEWAY_MAX_CONCURRENCY: ${GATEWAY_MAX_CONCURRENCY:-4}
+      GATEWAY_MAX_QUEUE: ${GATEWAY_MAX_QUEUE:-512}
+      LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-INFO}
+      STACK_VERSION: ${STACK_VERSION:-1.0.0}
+      LLM_GATEWAY_TOKEN_FILE: /run/secrets/llm_gateway_token
+      FLUENT_BIT_HTTP_URL: http://fluent-bit:9880
+      ERROW_MCP_URL: https://errow-mcp:9103/mcp
+      MCP_LIVE: ${MCP_LIVE:-false}
+      MCP_TARGETS_FILE: ${MCP_TARGETS_FILE:-}
+    secrets:
+      - llm_gateway_token
+    volumes:
+      - ./ollama/models.json:/etc/llm-gateway/models.json:ro
+      - ./pki:/pki:ro
+      - ${MCP_TARGETS_DIR:-./errow/config}:/etc/vendetta/mcp:ro
+      - llm-gateway-spool:/var/lib/llm-gateway/spool
+    networks: [inference, aggregation]
+    ports:
+      - "${GATEWAY_BIND:-127.0.0.1}:${GATEWAY_PUBLISH_PORT:-9101}:9101"
+    healthcheck:
+      test: ["CMD", "python", "/app/server.py", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+
+  # Restarting llm-gateway orphans this container's network namespace: restart ollama-lb right after.
+  ollama-lb:
+    <<: *haproxy-hardening
+    network_mode: service:llm-gateway
+    volumes:
+      - ./ollama/ollama-lb/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./pki:/pki:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8404/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      llm-gateway:
+        condition: service_healthy
+    deploy:
+      replicas: ${OLLAMA_LB_HAPROXY_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  ollama-lb-nginx:
+    <<: *hardened
+    profiles: [nginx-lb]
+    image: ${NGINX_IMAGE:?NGINX_IMAGE is required (see .env.example)}
+    network_mode: service:llm-gateway
+    cap_add: [CHOWN, SETGID, SETUID]
+    group_add: *key-group
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./ollama/ollama-lb/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./pki:/pki:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8404/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      llm-gateway:
+        condition: service_healthy
+    deploy:
+      replicas: ${OLLAMA_LB_NGINX_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Ollama workers. Each worker joins `inference` with the alias ollama-workers; its mTLS proxy shares its network namespace.
+  # ------------------------------------------------------------------------------------------------------------------
+  ollama-1:
+    <<: *hardened
+    profiles: [llm]
+    image: vendetta-stack/ollama:${STACK_VERSION:-1.0.0}
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile.ollama
+      args:
+        STACK_VERSION: ${STACK_VERSION:-1.0.0}
+    user: "10001:10001"
+    environment:
+      OLLAMA_HOST: 127.0.0.1:11434
+      CS3_PROFILE: ${CS3_PROFILE:-cloud}
+      OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-nemotron-3-nano:30b}
+      OLLAMA_FALLBACK_MODEL: ${OLLAMA_FALLBACK_MODEL:-gemma4:26b}
+      OLLAMA_SECURITY_MODEL: ${OLLAMA_SECURITY_MODEL:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_REASONING_DEEP: ${INFERENCE_MODEL_REASONING_DEEP:-gemma4:31b}
+      OLLAMA_PRELOAD_MODELS: ${OLLAMA_PRELOAD_MODELS:-nemotron-3-nano:30b,gemma4:26b,gemma4:31b}
+      OLLAMA_PRELOAD_STRICT: ${OLLAMA_PRELOAD_STRICT:-true}
+      OLLAMA_READY_TIMEOUT: ${OLLAMA_READY_TIMEOUT:-120}
+      OLLAMA_AIRGAP_BUNDLE_DIR: ${OLLAMA_AIRGAP_BUNDLE_DIR:-/bundle}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-4}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    tmpfs:
+      - /tmp
+    volumes:
+      - ollama-models:/var/lib/cs3-ollama
+      - ${OLLAMA_BUNDLE_HOST_DIR:-./dist/bundle/ollama}:/bundle:ro
+    # `edge` carries the model-pull egress; `inference` is internal and never reaches the Internet. Air-gap installs never pull.
+    networks:
+      inference:
+        aliases: [ollama-workers]
+      edge:
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/entrypoint.sh", "--healthcheck"]
+      interval: 15s
+      timeout: 10s
+      start_period: ${OLLAMA_START_PERIOD:-600s}
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: ${OLLAMA_MEM_LIMIT:-32g}
+
+  ollama-1-proxy:
+    <<: *haproxy-hardening
+    profiles: [llm]
+    network_mode: service:ollama-1
+    volumes:
+      - ./ollama/ollama-lb/worker-proxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./pki:/pki:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8405/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      ollama-1:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  mock-ollama:
+    <<: *hardened
+    profiles: [mock-llm]
+    image: ${PYTHON_IMAGE:?PYTHON_IMAGE is required (see .env.example)}
+    command: ["python", "/app/mock_ollama.py"]
+    user: "65534:65534"
+    environment:
+      MOCK_BIND: 127.0.0.1:11434
+      MOCK_DOWN_MODELS: ${MOCK_DOWN_MODELS:-}
+      MOCK_LATENCY_MS: ${MOCK_LATENCY_MS:-0}
+      MOCK_TOOL_TARGET: ${MOCK_TOOL_TARGET:-scan-target.vendetta.lab}
+    volumes:
+      - ./ollama/mock/mock_ollama.py:/app/mock_ollama.py:ro
+    networks:
+      inference:
+        aliases: [ollama-workers, ollama-1]
+    healthcheck:
+      test: ["CMD", "python", "/app/mock_ollama.py", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  mock-ollama-proxy:
+    <<: *haproxy-hardening
+    profiles: [mock-llm]
+    network_mode: service:mock-ollama
+    volumes:
+      - ./ollama/ollama-lb/worker-proxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./pki:/pki:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8405/healthz"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      mock-ollama:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Tier 5 — Errow (offensive side). Only these services (plus scan-target) touch the `offensive` network.
+  # ------------------------------------------------------------------------------------------------------------------
+  errow-dind:
+    profiles: [errow]
+    image: ${DIND_IMAGE:?DIND_IMAGE is required (see .env.example)}
+    restart: unless-stopped
+    privileged: true
+    logging: *logging
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - errow-dind-certs:/certs
+      - errow-dind-data:/var/lib/docker
+    networks: [offensive]
+    healthcheck:
+      test: ["CMD", "docker", "-H", "unix:///var/run/docker.sock", "info"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  errow:
+    <<: *hardened
+    profiles: [errow]
+    image: vendetta-stack/errow:${STACK_VERSION:-1.0.0}
+    build:
+      context: ../errow
+      dockerfile: ../vendetta-stack/errow/Dockerfile.errow
+      additional_contexts:
+        stack: ./errow
+      args:
+        STACK_VERSION: ${STACK_VERSION:-1.0.0}
+    command: ["--mode", "idle"]
+    user: "10001:10001"
+    group_add: *key-group
+    environment:
+      CS3_PROFILE: ${CS3_PROFILE:-cloud}
+      CS3_ROUTER_URL: ${CS3_ROUTER_URL:-https://llm-gateway:9101}
+      CS3_MODEL_TRIAGE: ${CS3_MODEL_TRIAGE:-}
+      CS3_MODEL_REASONING: ${CS3_MODEL_REASONING:-}
+      CS3_MODEL_SECURITY: ${CS3_MODEL_SECURITY:-}
+      CS3_MODEL_ERROW_SECURITY: ${CS3_MODEL_ERROW_SECURITY:-}
+      OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-nemotron-3-nano:30b}
+      OLLAMA_FALLBACK_MODEL: ${OLLAMA_FALLBACK_MODEL:-gemma4:26b}
+      OLLAMA_SECURITY_MODEL: ${OLLAMA_SECURITY_MODEL:-nemotron-3-nano:30b}
+      INFERENCE_MODEL_ERROW_SECURITY: ${INFERENCE_MODEL_ERROW_SECURITY:-nemotron-3-nano:30b}
+      OLLAMA_ERROW_SECURITY_MODEL: ${OLLAMA_ERROW_SECURITY_MODEL:-${INFERENCE_MODEL_ERROW_SECURITY:-nemotron-3-nano:30b}}
+      LLM_GATEWAY_URL: ${CS3_ROUTER_URL:-https://llm-gateway:9101}
+      LLM_GATEWAY_TOKEN_FILE: /run/secrets/llm_gateway_token
+      CS3_APPROVAL_TOKEN_FILE: /run/secrets/cs3_approval_token
+      ERROW_ALLOWED_TARGETS: ${ERROW_ALLOWED_TARGETS:-${ERROW_TARGETS:-scan-target.vendetta.lab}}
+      ERROW_TELEMETRY: ${ERROW_TELEMETRY:-false}
+      ERROW_CLOUD_ENABLED: ${ERROW_CLOUD_ENABLED:-false}
+      ERROW_CLOUD_URL: ${ERROW_CLOUD_URL:-https://app.errow.ai}
+      DOCKER_HOST: tcp://errow-dind:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
+      ERROW_SANDBOX_IMAGE: ${ERROW_SANDBOX_IMAGE:-vendetta-stack/errow-sandbox:${STACK_VERSION:-1.0.0}}
+      ERROW_SANDBOX_IMAGE_TAR: ${ERROW_SANDBOX_IMAGE_TAR:-/bundle/errow-sandbox.tar}
+      ERROW_TUI_FORWARD_ADDR: fluent-bit:${ERROW_TUI_PORT:-24225}
+    secrets:
+      - llm_gateway_token
+      - cs3_approval_token
+    tmpfs:
+      - /home/errow:uid=10001,gid=10001,mode=0700
+      - /tmp
+    volumes:
+      - errow-runs:/workspace/errow_runs
+      - errow-ndjson:/var/log/errow
+      - ./pki/ca.crt:/pki/ca.crt:ro
+      - ${ERROW_BUNDLE_DIR:-./dist/bundle/errow}:/bundle:ro
+      - type: volume
+        source: errow-dind-certs
+        target: /certs/client
+        read_only: true
+        volume:
+          subpath: client
+    networks: [offensive, aggregation]
+    healthcheck:
+      test: ["CMD", "errow-entrypoint", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+      errow-dind:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  errow-viewer:
+    <<: *hardened
+    profiles: [errow]
+    image: vendetta-stack/errow:${STACK_VERSION:-1.0.0}
+    user: "10001:10001"
+    environment:
+      ERROW_MODE: view
+      ERROW_VIEWER_HOST: 0.0.0.0
+      ERROW_VIEWER_PORT: "8765"
+    tmpfs:
+      - /home/errow:uid=10001,gid=10001,mode=0700
+      - /tmp
+      - /var/log/errow:uid=10001,gid=10001,mode=0755
+    volumes:
+      - errow-runs:/workspace/errow_runs:ro
+    networks: [management]
+    ports:
+      - "${ERROW_VIEWER_BIND:-127.0.0.1}:${ERROW_VIEWER_PUBLISH_PORT:-8765}:8765"
+    healthcheck:
+      test: ["CMD", "errow-entrypoint", "--healthcheck"]
+      interval: 30s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    depends_on:
+      errow:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
+  errow-mcp:
+    <<: *hardened
+    image: vendetta-stack/errow-mcp:${STACK_VERSION:-1.0.0}
+    build:
+      context: ./errow/mcp
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    group_add: *key-group
+    environment:
+      MCP_LIVE: ${MCP_LIVE:-false}
+      DOCKER_HOST: tcp://errow-dind:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
+      errow_IMAGE: ${ERROW_SANDBOX_IMAGE:-vendetta-stack/errow-sandbox:${STACK_VERSION:-1.0.0}}
+      MCP_ALLOWED_CLIENTS: ${MCP_ALLOWED_CLIENTS:-llm-gateway,errow,errow-mcp}
+      MCP_SANDBOX_NETWORK: ${MCP_SANDBOX_NETWORK:-offensive}
+      MCP_TARGETS_FILE: ${MCP_TARGETS_FILE:-}
+    volumes:
+      - ./pki:/pki:ro
+      - ${MCP_TARGETS_DIR:-./errow/config}:/etc/vendetta/mcp:ro
+      - errow-ndjson:/var/log/errow
+      - errow-runs:/workspace/errow_runs:ro
+      - errow-dind-certs:/certs:ro
+    networks: [offensive, aggregation]
+    healthcheck:
+      test: ["CMD", "python", "/app/server.py", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+      errow-dind:
+        condition: service_healthy
+        required: false
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+
+  errow-shipper:
+    <<: *hardened
+    image: vendetta-stack/errow-shipper:${STACK_VERSION:-1.0.0}
+    build:
+      context: ./errow/shipper
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    group_add: *key-group
+    environment:
+      SHIPPER_INTERVAL: ${SHIPPER_INTERVAL:-10}
+      ERROW_RUNS_DIR: /workspace/errow_runs
+      errow_TELEMETRY: ${ERROW_TELEMETRY:-false}
+      DOCKER_HOST: tcp://errow-dind:2376
+      DOCKER_TLS_VERIFY: "1"
+      DOCKER_CERT_PATH: /certs/client
+    volumes:
+      - errow-runs:/workspace/errow_runs:ro
+      - errow-ndjson:/var/log/errow
+      - errow-shipper-state:/var/lib/errow-shipper
+      - errow-dind-certs:/certs:ro
+    networks: [offensive]
+    healthcheck:
+      test: ["CMD", "python", "/app/shipper.py", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+      errow-dind:
+        condition: service_healthy
+        required: false
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+  errow-feedback: &errow-feedback
+    <<: *hardened
+    image: vendetta-stack/errow-feedback:${STACK_VERSION:-1.0.0}
+    build:
+      context: ./errow/feedback-loop
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    group_add: *key-group
+    environment: &errow-feedback-environment
+      FEEDBACK_PORT: "9102"
+      ERROW_FEEDBACK_LIVE: ${ERROW_FEEDBACK_LIVE:-false}
+      ERROW_FEEDBACK_FORENSIC: ${ERROW_FEEDBACK_FORENSIC:-true}
+      ERROW_FEEDBACK_ALLOWED_TARGETS: ${ERROW_FEEDBACK_ALLOWED_TARGETS:-${ERROW_TARGETS:-scan-target.vendetta.lab}}
+      ERROW_FEEDBACK_AR_COMMAND: ${ERROW_FEEDBACK_AR_COMMAND:-!host-isolate.sh}
+      ERROW_FEEDBACK_APPROVAL_KEY_FILE: /run/approval/feedback_approval_key
+      ERROW_FEEDBACK_APPROVAL_KEYS_DIR: ${ERROW_FEEDBACK_APPROVAL_KEYS_DIR:-/run/approval/keys}
+      ERROW_FEEDBACK_APPROVAL_THRESHOLD: ${ERROW_FEEDBACK_APPROVAL_THRESHOLD:-2}
+      VENDETTA_API_CA_FILE: ${VENDETTA_API_CA_FILE:-/pki/manager-ca-bundle.crt}
+      VENDETTA_EXECD_AGENT_REGEX: ${VENDETTA_EXECD_AGENT_REGEX:-^$}
+      VENDETTA_API_URL: https://vendetta-manager:55000
+      VENDETTA_API_USER: ${VENDETTA_API_USER:-wazuh-wui}
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USER: ${OPENSEARCH_USER:-admin}
+      LLM_GATEWAY_URL: https://llm-gateway:9101
+    secrets:
+      - feedback_webhook_token
+      - vendetta_api_password
+      - opensearch_admin_password
+      - llm_gateway_token
+    volumes: &errow-feedback-volumes
+      - ./pki:/pki:ro
+      - ./errow/feedback-loop/APPROVALS.md:/opt/feedback-loop/APPROVALS.md:ro
+      - ${ERROW_FEEDBACK_APPROVAL_DIR:-./secrets/approval}:/run/approval:ro
+      - feedback-loop:/var/log/feedback-loop
+    networks: [aggregation, storage, management]
+    healthcheck:
+      test: ["CMD", "python3", "/opt/feedback-loop/server.py", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+
+  errow-feedback-poller:
+    <<: *hardened
+    profiles: [poller]
+    image: vendetta-stack/errow-feedback:${STACK_VERSION:-1.0.0}
+    entrypoint:
+      - /bin/bash
+      - -c
+      - exec /opt/feedback-loop/vendetta-to-errow.sh --via-llm --interval "$${ERROW_FEEDBACK_POLL_INTERVAL:-60}"
+    user: "10001:10001"
+    group_add: *key-group
+    environment:
+      <<: *errow-feedback-environment
+      ERROW_FEEDBACK_POLL_INTERVAL: ${ERROW_FEEDBACK_POLL_INTERVAL:-60}
+      ERROW_FEEDBACK_HEARTBEAT_FILE: /tmp/poller.alive
+    secrets:
+      - feedback_webhook_token
+      - vendetta_api_password
+      - opensearch_admin_password
+      - llm_gateway_token
+    tmpfs:
+      - /tmp
+    volumes: *errow-feedback-volumes
+    networks: [aggregation, storage, management]
+    healthcheck:
+      test: ["CMD-SHELL", "test -n \"$$(find /tmp/poller.alive -mmin -45 2>/dev/null)\""]
+      interval: 60s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    depends_on:
+      errow-feedback:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+
+  scan-target:
+    <<: *hardened
+    profiles: [lab]
+    image: ${NGINX_IMAGE:?NGINX_IMAGE is required (see .env.example)}
+    command: ["nginx", "-g", "daemon off;"]
+    cap_add: [CHOWN, SETGID, SETUID]
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+    configs:
+      # Replaces the image's own nginx.conf: Docker cannot create a new mount point on a read-only rootfs.
+      - source: scan-target.conf
+        target: /etc/nginx/nginx.conf
+    networks:
+      offensive:
+        aliases: [scan-target.vendetta.lab]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64m
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Vendetta manager (optional: agents may report to an existing manager instead)
+  # ------------------------------------------------------------------------------------------------------------------
+  vendetta-manager:
+    profiles: [manager]
+    image: ${VENDETTA_MANAGER_IMAGE:?VENDETTA_MANAGER_IMAGE is required (see .env.example)}
+    restart: unless-stopped
+    logging: *logging
+    # The entrypoint only exports the API password from its secret and hands over to /init. The CS3 wiring is the s6
+    # cont-init stage mounted below: cont-init runs after 0-wazuh-init has installed /var/ossec and before any service
+    # starts, so the patched ossec.conf is in place when wazuh-analysisd reads it. Set CS3_MANAGER_CONF_TEMPLATE to a full
+    # ossec.conf to skip the splice and own the configuration instead.
+    entrypoint: ["/bin/bash", "/manager-integration/entrypoint.sh"]
+    environment:
+      # The stock image fetches CTI feeds from cti.wazuh.com every 60m. `off` (the shipped default) disables the updater so
+      # an install without egress does not log a content-updater ERROR forever; `mirror` points it at CS3_MANAGER_CTI_URL;
+      # `auto` leaves the image default alone and only logs what will happen.
+      CS3_MANAGER_FEED_MODE: ${CS3_MANAGER_FEED_MODE:-off}
+      CS3_MANAGER_CTI_URL: ${CS3_MANAGER_CTI_URL:-}
+      CS3_MANAGER_STRICT: ${CS3_MANAGER_STRICT:-false}
+    secrets:
+      - vendetta_api_password
+    volumes:
+      - vendetta-logs:/var/ossec/logs
+      - ./vendetta/manager:/manager-integration:ro
+      - ./vendetta/manager/05-cs3-manager-integration.sh:/etc/cont-init.d/05-cs3-manager-integration.sh:ro
+    networks: [management]
+    ports:
+      - "${VENDETTA_BIND:-127.0.0.1}:${VENDETTA_SYSLOG_PORT:-5140}:5140/udp"
+      - "${VENDETTA_BIND:-127.0.0.1}:${VENDETTA_AUTHD_PORT:-1515}:1515"
+      - "${VENDETTA_BIND:-127.0.0.1}:${VENDETTA_API_PORT:-55000}:55000"
+    healthcheck:
+      test: ["CMD-SHELL", "/var/ossec/bin/wazuh-control status | grep -q 'wazuh-apid is running'"]
+      interval: 30s
+      timeout: 15s
+      start_period: 180s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  # ------------------------------------------------------------------------------------------------------------------
+  # Smoke test (profile test): HTTP sink standing in for the Console/SIEM legs, and the runner that drives tests/
+  # ------------------------------------------------------------------------------------------------------------------
+  sink:
+    <<: *hardened
+    profiles: [test]
+    image: ${PYTHON_IMAGE:?PYTHON_IMAGE is required (see .env.example)}
+    command: ["python", "/app/sink.py"]
+    user: "65534:65534"
+    environment:
+      SINK_PORT: "8080"
+      SINK_DATA_DIR: /data
+    tmpfs:
+      - /data:uid=65534,gid=65534,mode=0755
+    volumes:
+      - ./tests/stubs/sink.py:/app/sink.py:ro
+    networks: [aggregation, edge, management]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"]
+      interval: 5s
+      timeout: 5s
+      start_period: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128m
+
+  smoke-runner:
+    profiles: [test]
+    image: ${PYTHON_IMAGE:?PYTHON_IMAGE is required (see .env.example)}
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+    command: ["sleep", "infinity"]
+    working_dir: /tests
+    environment:
+      OPENSEARCH_URL: https://opensearch:9200
+      OPENSEARCH_USER: ${OPENSEARCH_USER:-admin}
+      OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_admin_password
+      CA_FILE: /pki/ca.crt
+      GATEWAY_URL: https://llm-gateway:9101
+      GATEWAY_TOKEN_FILE: /run/secrets/llm_gateway_token
+      FLUENT_BIT_HTTP: http://fluent-bit:9880
+      ERROW_MCP_URL: https://errow-mcp:9103/mcp
+      CLIENT_CERT: /pki/errow.crt
+      CLIENT_KEY: /pki/errow.key
+      SINK_URL: http://sink:8080
+      PROMETHEUS_URL: http://prometheus:9090
+      FLUENTD_METRICS: http://fluentd-1:24231/metrics
+      FIXTURES_DIR: /tests/synthetic-logs
+      ERROW_RUNS_DIR: /workspace/errow_runs
+      RESULTS_DIR: /results
+      PIPELINE_WAIT_SECONDS: ${PIPELINE_WAIT_SECONDS:-150}
+      MCP_LIVE: ${MCP_LIVE:-false}
+      OLLAMA_PRIMARY_MODEL: ${OLLAMA_PRIMARY_MODEL:-nemotron-3-nano:30b}
+      OLLAMA_FALLBACK_MODEL: ${OLLAMA_FALLBACK_MODEL:-gemma4:26b}
+      OLLAMA_SECURITY_MODEL: ${OLLAMA_SECURITY_MODEL:-nemotron-3-nano:30b}
+    secrets:
+      - opensearch_admin_password
+      - llm_gateway_token
+    volumes:
+      - ./tests:/tests:ro
+      - ./tests/results:/results
+      - ./pki:/pki:ro
+      - errow-runs:/workspace/errow_runs
+    networks: [edge, aggregation, storage, management, offensive]
+    healthcheck:
+      test: ["CMD", "test", "-s", "/tests/validate-pipeline.py"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      sink:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+
+configs:
+  # file-based (bind mount): compose injects `content:` configs by copying into the container, which a read_only rootfs rejects
+  scan-target.conf:
+    file: ./errow/config/scan-target.nginx.conf
+
+networks:
+  edge:
+    driver: bridge
+  aggregation:
+    driver: bridge
+  storage:
+    driver: bridge
+  management:
+    driver: bridge
+  offensive:
+    driver: bridge
+  inference:
+    driver: bridge
+    internal: true
+
+secrets:
+  opensearch_admin_password:
+    file: ./secrets/opensearch_admin_password
+  llm_gateway_token:
+    file: ./secrets/llm_gateway_token
+  errow_api_token:
+    file: ./secrets/errow_api_token
+  cs3_approval_token:
+    file: ./secrets/cs3_approval_token
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password
+  feedback_webhook_token:
+    file: ./secrets/feedback_webhook_token
+  vendetta_api_password:
+    file: ./secrets/vendetta_api_password
+
+volumes:
+  vendetta-logs:
+  errow-runs:
+  errow-ndjson:
+  errow-shipper-state:
+  errow-dind-data:
+  errow-dind-certs:
+  feedback-loop:
+  fluentbit-storage:
+  fluentd-buffer-1:
+  fluentd-buffer-2:
+  llm-gateway-spool:
+  ollama-models:
+  opensearch-data:
+  opensearch-snapshots:
+  prometheus:
+  alertmanager:
+  grafana:

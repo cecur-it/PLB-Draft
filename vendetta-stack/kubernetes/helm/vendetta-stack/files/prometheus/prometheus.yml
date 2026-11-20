@@ -1,0 +1,84 @@
+# Traces: PROMPT §5 Observability (metrics, alerting), CONTRACT §2 (ports), §4.4 (gateway metrics), §8.11
+# Prometheus v2.55.1 scrape + alerting config. Mount this directory read-only at /etc/prometheus (this file + alerts.yml).
+# Files it reads: /pki/ca.crt, /pki/prometheus.crt|key (client cert for the mTLS endpoints), /run/secrets/llm_gateway_token.
+# Not scraped on purpose: OpenSearch. The pinned opensearch image ships no prometheus-exporter plugin (air-gap safe, no plugin
+# install), so cluster health is read by Grafana through the OpenSearch datasource and by the opensearch/ healthchecks instead.
+# Not scraped: Ollama itself (it binds loopback only; the gateway republishes ollama_gpu_memory_util) and the Errow runtime.
+# A target that is not deployed in a compose profile simply reports up == 0; alerts.yml pages on that only for the core
+# pipeline (fluent-bit, fluentd, llm-gateway); optional components (errow-mcp) get a warning with a longer `for`.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    stack: vendetta-stack
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - scheme: http
+      timeout: 10s
+      static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+
+  - job_name: fluent-bit
+    metrics_path: /api/v2/metrics/prometheus
+    static_configs:
+      - targets: ["fluent-bit:2020"]
+        labels:
+          tier: edge
+
+  - job_name: fluentd
+    metrics_path: /metrics
+    # Every Fluentd series already carries node="fluentd-N"; honor_labels keeps the exporter's value instead of exported_node.
+    honor_labels: true
+    static_configs:
+      - targets: ["fluentd-1:24231"]
+        labels:
+          node: fluentd-1
+          tier: aggregator
+      - targets: ["fluentd-2:24231"]
+        labels:
+          node: fluentd-2
+          tier: aggregator
+
+  - job_name: llm-gateway
+    scheme: https
+    metrics_path: /metrics
+    bearer_token_file: /run/secrets/llm_gateway_token
+    tls_config:
+      ca_file: /pki/ca.crt
+      server_name: llm-gateway
+      cert_file: /pki/prometheus.crt
+      key_file: /pki/prometheus.key
+      min_version: TLS12
+    static_configs:
+      - targets: ["llm-gateway:9101"]
+        labels:
+          tier: ai
+
+  - job_name: errow-mcp
+    scheme: https
+    metrics_path: /metrics
+    tls_config:
+      ca_file: /pki/ca.crt
+      server_name: errow-mcp
+      cert_file: /pki/prometheus.crt
+      key_file: /pki/prometheus.key
+      min_version: TLS12
+    static_configs:
+      - targets: ["errow-mcp:9103"]
+        labels:
+          tier: errow

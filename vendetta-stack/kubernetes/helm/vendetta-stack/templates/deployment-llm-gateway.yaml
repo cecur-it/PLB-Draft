@@ -1,0 +1,183 @@
+# Traces: CONTRACT section 2 (llm-gateway 9101, ollama-lb in the gateway netns, spool volume per replica), llm-gateway/RUNTIME.md (K8s), ollama/RUNTIME.md section 3.
+{{- if .Values.llmGateway.enabled }}
+{{- $gw := .Values.llmGateway }}
+{{- $env := dict
+  "CS3_LLM_MODE" .Values.config.llmMode
+  "CS3_MESSAGE_MAX_CHARS" .Values.config.messageMaxChars
+  "OLLAMA_BASE_URL" "http://127.0.0.1:11434/v1"
+  "CS3_MODEL_TRIAGE" .Values.config.triageModel
+  "CS3_MODEL_REASONING" .Values.config.forensicModel
+  "CS3_MODEL_REASONING_DEEP" .Values.config.reasoningDeepModel
+  "CS3_MODEL_SECURITY" .Values.config.securityModel
+  "CS3_MODEL_ERROW_SECURITY" .Values.config.errowSecurityRoute
+  "OLLAMA_PRIMARY_MODEL" .Values.config.primaryModel
+  "OLLAMA_FALLBACK_MODEL" .Values.config.fallbackModel
+  "OLLAMA_SECURITY_MODEL" .Values.config.securityModel
+  "INFERENCE_MODEL_TRIAGE" .Values.config.triageModel
+  "INFERENCE_MODEL_FORENSIC" .Values.config.forensicModel
+  "INFERENCE_MODEL_SECURITY" .Values.config.securityModel
+  "INFERENCE_MODEL_ERROW_SECURITY" .Values.config.errowSecurityModel
+  "INFERENCE_MODEL_REASONING_DEEP" .Values.config.reasoningDeepModel
+  "INFERENCE_MODEL_GUARD" .Values.config.guardModel
+  "OLLAMA_REASONING_DEEP_MODEL" .Values.config.reasoningDeepModel
+  "OLLAMA_ERROW_SECURITY_MODEL" .Values.config.errowSecurityModel
+  "INFERENCE_MAX_TOKENS_TRIAGE" .Values.config.triageMaxTokens
+  "INFERENCE_MAX_TOKENS_SECURITY" .Values.config.securityMaxTokens
+  "INFERENCE_MAX_TOKENS_ERROW" .Values.config.errowMaxTokens
+  "GATEWAY_CACHE_TRIAGE" .Values.config.triageCache
+  "GATEWAY_CACHE_SECURITY" .Values.config.securityCache
+  "GATEWAY_CACHE_ERROW" .Values.config.errowCache
+  "INFERENCE_TIMEOUT_MS" $gw.timeoutMs
+  "INFERENCE_GPU_SHARE" $gw.gpuShare
+  "GATEWAY_MTLS" $gw.mtls
+  "GATEWAY_MAX_CONCURRENCY" $gw.maxConcurrency
+  "GATEWAY_MAX_QUEUE" $gw.maxQueue
+  "LOG_LEVEL" $gw.logLevel
+  "STACK_VERSION" .Values.global.stackVersion
+  "LLM_GATEWAY_TOKEN_FILE" "/run/secrets/llm_gateway_token"
+  "FLUENT_BIT_HTTP_URL" "http://fluent-bit:9880"
+  "ERROW_MCP_URL" "https://errow-mcp:9103/mcp"
+  "MCP_LIVE" .Values.config.mcpLive
+  "MCP_TARGETS_FILE" .Values.config.mcpTargetsFile }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "llm-gateway") | indent 4 }}
+  ports:
+    - {name: https, port: 9101, targetPort: https}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway-headless
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+    vendetta-stack/headless: "true"
+spec:
+  clusterIP: None
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "llm-gateway") | indent 4 }}
+  ports:
+    - {name: https, port: 9101, targetPort: https}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: llm-gateway
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+spec:
+  serviceName: llm-gateway-headless
+  replicas: {{ if $gw.hpa.enabled }}{{ $gw.hpa.minReplicas }}{{ else }}{{ $gw.replicas }}{{ end }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "llm-gateway") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 20
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" $gw "component" "llm-gateway" "spread" true) | indent 6 }}
+      initContainers:
+{{ include "vs.pemInit" (dict "root" . "svc" "ollama-lb" "src" "pki-lb-src" "dst" "pki-lb") | indent 8 }}
+      containers:
+        - name: llm-gateway
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.llmGateway) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.profileEnv" . | indent 12 }}
+{{ include "vs.env" $env | indent 12 }}
+          ports:
+            - {name: https, containerPort: 9101}
+          startupProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $gw.resources | indent 12 }}
+          volumeMounts:
+            - {name: models, mountPath: /etc/llm-gateway, readOnly: true}
+            - {name: mcp, mountPath: /etc/vendetta/mcp, readOnly: true}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: spool, mountPath: /var/lib/llm-gateway/spool}
+        - name: ollama-lb
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.haproxy) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          readinessProbe:
+            exec:
+              command: {{ include "vs.wgetCmd" "http://127.0.0.1:8404/ready" }}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: {{ include "vs.wgetCmd" "http://127.0.0.1:8404/healthz" }}
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            runAsUser: 99
+            runAsGroup: 99
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $gw.lb.resources | indent 12 }}
+          volumeMounts:
+            - name: lb-config
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg
+              subPath: haproxy.cfg
+              readOnly: true
+            - {name: pki-lb, mountPath: /pki}
+      volumes:
+        - name: models
+          configMap:
+            name: llm-gateway-models
+        - name: mcp
+          configMap:
+            name: mcp-config
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "errow/config") | indent 14 }}
+        - name: lb-config
+          configMap:
+            name: ollama-lb-config
+            items:
+              - {key: haproxy.cfg, path: haproxy.cfg}
+        - name: pki-lb
+          emptyDir:
+            medium: Memory
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "llm-gateway"))) | indent 8 }}
+{{ include "vs.pkiVolume" (dict "root" . "volume" "pki-lb-src" "certs" (list (dict "svc" "ollama-lb"))) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "llm_gateway_token")) | indent 8 }}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "name" "spool" "component" "llm-gateway" "size" $gw.persistence.size "class" $gw.persistence.storageClass) | indent 4 }}
+{{- end }}

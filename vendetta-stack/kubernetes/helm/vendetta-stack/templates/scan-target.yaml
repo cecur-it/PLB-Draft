@@ -1,0 +1,99 @@
+# Traces: CONTRACT section 2 (scan-target.vendetta.lab, offensive lab target), errow/config/mcp-targets policy.
+{{- define "vs.scanTargetConf" -}}
+worker_processes 1;
+pid /tmp/nginx.pid;
+events { worker_connections 64; }
+http {
+  access_log /dev/stdout;
+  error_log /dev/stderr warn;
+  client_body_temp_path /tmp/body;
+  proxy_temp_path /tmp/proxy;
+  fastcgi_temp_path /tmp/fastcgi;
+  uwsgi_temp_path /tmp/uwsgi;
+  scgi_temp_path /tmp/scgi;
+  server {
+    listen 8080;
+    server_name scan-target.vendetta.lab;
+    location / { default_type text/plain; return 200 "vendetta-stack scan target\n"; }
+    location /health { default_type text/plain; return 200 "ok\n"; }
+  }
+}
+{{- end }}
+{{- if and .Values.errow.enabled .Values.errow.scanTarget.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scan-target-config
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "scan-target") | indent 4 }}
+data:
+  scan-target.conf: |
+{{ include "vs.scanTargetConf" . | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scan-target
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "scan-target") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "scan-target") | indent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scan-target
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "scan-target") | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "scan-target") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "scan-target") | indent 8 }}
+      annotations:
+        checksum/config: {{ include "vs.scanTargetConf" . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.nginx) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/scan-target.conf"]
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+{{ include "vs.containerSecurity" (dict "add" (list "CHOWN" "SETGID" "SETUID")) | indent 12 }}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 250m, memory: 64Mi}
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/scan-target.conf, subPath: scan-target.conf, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: cache, mountPath: /var/cache/nginx}
+      volumes:
+        - name: conf
+          configMap:
+            name: scan-target-config
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+{{- end }}

@@ -1,0 +1,61 @@
+{
+  "call_id": "llm_8d41c0b7e2a94f06",
+  "route": "litellm",
+  "provider": "openai",
+  "model": "openai/nemotron-3-nano:30b",
+  "api_host": "llm-gateway:9101",
+  "streaming": false,
+  "outcome": "success",
+  "status_code": 200,
+  "provider_request_id": "req_gw_6f2a91c4d3b7",
+  "response_id": "chatcmpl-gw-6f2a91c4d3b7",
+  "error_type": null,
+  "error_message": null,
+  "started_at": "2026-11-12T09:14:02.511820+00:00",
+  "finished_at": "2026-11-12T09:14:09.973144+00:00",
+  "duration_ms": 7461,
+  "input_tokens": 8412,
+  "output_tokens": 596,
+  "cached_input_tokens": 0,
+  "total_tokens": 9008,
+  "cost_usd": 0.0,
+  "agent_id": "agent_5c1e07d2",
+  "agent_name": "ErrowAgent",
+  "retry_attempt": 0,
+  "request_bytes": 31877,
+  "response_bytes": 2954,
+  "time_to_first_token_ms": null,
+  "finish_reason": "tool_calls",
+  "response_headers": {
+    "content-type": "application/json",
+    "x-request-id": "req_gw_6f2a91c4d3b7",
+    "x-cs3-model": "nemotron-3-nano:30b",
+    "x-cs3-gpu-seconds": "7.461"
+  },
+  "details": {
+    "request": {
+      "temperature": 0.2,
+      "message_count": 14,
+      "tool_count": 9,
+      "tool_choice": "auto",
+      "response_format": "json_object",
+      "stream": false
+    },
+    "response": {
+      "id": "chatcmpl-gw-6f2a91c4d3b7",
+      "created": 1794474849,
+      "model": "nemotron-3-nano:30b",
+      "object": "chat.completion",
+      "choice_count": 1,
+      "usage": {
+        "prompt_tokens": 8412,
+        "completion_tokens": 596,
+        "total_tokens": 9008
+      }
+    },
+    "litellm": {
+      "custom_llm_provider": "openai",
+      "api_base_host": "llm-gateway"
+    }
+  }
+}

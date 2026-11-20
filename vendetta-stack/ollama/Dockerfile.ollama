@@ -1,0 +1,67 @@
+#
+# Dockerfile.ollama — CS3 sovereign Ollama worker (CONTRACT §8.1: service `ollama`).
+#
+# Traces: PROMPT §1 Tier 4 (Ollama 0.40.5 serving nemotron-3-nano:30b / gemma4:26b / gemma4:31b),
+#         PROMPT §3 (non-root, loopback-only, air-gap safe), CONTRACT §1 (pinned image digest),
+#         CONTRACT §8.1 (Ollama binds 127.0.0.1:11434 in its netns; ollama-proxy terminates mTLS).
+#
+# Build (context = this directory):
+#   docker build -f Dockerfile.ollama -t vendetta-stack/ollama:${STACK_VERSION:-1.0.0} ollama/
+#
+# What this adds to the pinned upstream image:
+#   * OLLAMA_HOST=127.0.0.1:11434 — the API is reachable only from the pod/netns (worker proxy sidecar)
+#   * non-root user cs3-ollama (uid 10001), model store /var/lib/cs3-ollama/.ollama/models
+#   * entrypoint.sh: start, wait ready, then pull-models.sh (never pulls when CS3_PROFILE=airgap)
+#   * HEALTHCHECK: `ollama list` through entrypoint.sh --healthcheck (the image has no curl)
+FROM ollama/ollama:0.40.5@sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241
+
+ARG STACK_VERSION=1.0.0
+LABEL org.opencontainers.image.title="vendetta-stack ollama worker" \
+      org.opencontainers.image.description="Pinned Ollama 0.40.5 bound to loopback with approved-model provisioning (online pull / air-gap GGUF load)" \
+      org.opencontainers.image.version="${STACK_VERSION}" \
+      org.opencontainers.image.vendor="CECUR-IT" \
+      org.opencontainers.image.base.name="docker.io/ollama/ollama:0.40.5" \
+      org.opencontainers.image.base.digest="sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241" \
+      com.cecur-it.vendetta-stack.component="ollama"
+
+# jq reads models.json (approved tags + pinned digests) in pull-models.sh.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends jq \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 cs3-ollama \
+ && useradd --system --uid 10001 --gid 10001 --home-dir /var/lib/cs3-ollama --shell /usr/sbin/nologin cs3-ollama \
+ && install -d -o 10001 -g 10001 -m 0750 /var/lib/cs3-ollama /var/lib/cs3-ollama/.ollama /var/lib/cs3-ollama/.ollama/models \
+ && install -d -m 0755 /opt/cs3 /opt/cs3/modelfiles
+
+# Directories are created above (0755): BuildKit would apply --chmod=0644 to implicit parents and make them untraversable.
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=0755 pull-models.sh /usr/local/bin/pull-models.sh
+COPY --chmod=0644 models.json /opt/cs3/models.json
+COPY --chmod=0644 modelfiles/*.Modelfile /opt/cs3/modelfiles/
+
+# NVIDIA_VISIBLE_DEVICES / NVIDIA_DRIVER_CAPABILITIES come from the base image (GPU via the NVIDIA runtime).
+ENV HOME=/var/lib/cs3-ollama \
+    TMPDIR=/tmp \
+    OLLAMA_HOST=127.0.0.1:11434 \
+    OLLAMA_MODELS=/var/lib/cs3-ollama/.ollama/models \
+    OLLAMA_NOHISTORY=1 \
+    OLLAMA_KEEP_ALIVE=30m \
+    OLLAMA_NUM_PARALLEL=4 \
+    OLLAMA_MAX_LOADED_MODELS=3 \
+    OLLAMA_PRIMARY_MODEL=nemotron-3-nano:30b \
+    OLLAMA_FALLBACK_MODEL=gemma4:26b \
+    OLLAMA_MODELS_JSON=/opt/cs3/models.json \
+    OLLAMA_MODELFILES_DIR=/opt/cs3/modelfiles \
+    CS3_PROFILE=onprem
+
+VOLUME ["/var/lib/cs3-ollama"]
+USER 10001:10001
+WORKDIR /var/lib/cs3-ollama
+
+# No EXPOSE: 11434 is loopback-only inside the pod; the mTLS worker proxy publishes :11443.
+# start-period covers first-boot model pulls; raise it for slow links (compose: healthcheck.start_period).
+HEALTHCHECK --interval=15s --timeout=10s --start-period=600s --retries=5 \
+  CMD ["/usr/local/bin/entrypoint.sh", "--healthcheck"]
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["serve"]

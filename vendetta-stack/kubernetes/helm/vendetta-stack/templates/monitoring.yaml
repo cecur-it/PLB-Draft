@@ -1,0 +1,254 @@
+# Traces: PROMPT section 5 (observability), CONTRACT section 2 (prometheus 9090, alertmanager 9093, grafana 3000), prometheus/ and grafana/ RUNTIME headers.
+{{- $m := .Values.monitoring }}
+{{- if $m.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "prometheus") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "prometheus") | indent 4 }}
+  ports:
+    - {name: http, port: 9090, targetPort: http}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "prometheus") | indent 4 }}
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "prometheus") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "prometheus") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 65534) | indent 8 }}
+      containers:
+        - name: prometheus
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.prometheus) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time={{ $m.prometheus.retention }}
+            - --web.enable-lifecycle
+          ports:
+            - {name: http, containerPort: 9090}
+          startupProbe:
+            httpGet: {path: /-/healthy, port: http}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /-/ready, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /-/healthy, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $m.prometheus.resources | indent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/prometheus, readOnly: true}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: data, mountPath: /prometheus}
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "prometheus") | indent 14 }}
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "prometheus"))) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "llm_gateway_token")) | indent 8 }}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "name" "data" "component" "prometheus" "size" $m.prometheus.persistence.size "class" $m.prometheus.persistence.storageClass) | indent 4 }}
+---
+{{- end }}
+{{- if $m.alertmanager.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "alertmanager") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "alertmanager") | indent 4 }}
+  ports:
+    - {name: http, port: 9093, targetPort: http}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: alertmanager
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "alertmanager") | indent 4 }}
+spec:
+  serviceName: alertmanager
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "alertmanager") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "alertmanager") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 65534) | indent 8 }}
+      containers:
+        - name: alertmanager
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.alertmanager) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - {name: http, containerPort: 9093}
+          startupProbe:
+            httpGet: {path: /-/healthy, port: http}
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet: {path: /-/ready, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /-/healthy, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $m.alertmanager.resources | indent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/alertmanager/alertmanager.yml, subPath: alertmanager.yml, readOnly: true}
+            - {name: data, mountPath: /alertmanager}
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "name" "data" "component" "alertmanager" "size" $m.alertmanager.persistence.size "class" $m.alertmanager.persistence.storageClass) | indent 4 }}
+---
+{{- end }}
+{{- if $m.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "grafana") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "grafana") | indent 4 }}
+  ports:
+    - {name: http, port: 3000, targetPort: http}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "grafana") | indent 4 }}
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "grafana") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "grafana") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 472 "gid" 472) | indent 8 }}
+      containers:
+        - name: grafana
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.grafana) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.env" (dict
+  "GF_SECURITY_ADMIN_PASSWORD__FILE" "/run/secrets/grafana_admin_password"
+  "GF_LOG_MODE" "console"
+  "GF_ANALYTICS_REPORTING_ENABLED" false
+  "GF_ANALYTICS_CHECK_FOR_UPDATES" false
+  "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES" false
+  "GF_PLUGINS_PLUGIN_ADMIN_ENABLED" false
+  "GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED" true
+  "GF_USERS_ALLOW_SIGN_UP" false
+  "GF_SECURITY_DISABLE_GRAVATAR" true) | indent 12 }}
+          ports:
+            - {name: http, containerPort: 3000}
+          startupProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $m.grafana.resources | indent 12 }}
+          volumeMounts:
+            - {name: provisioning, mountPath: /etc/grafana/provisioning, readOnly: true}
+            - {name: dashboards, mountPath: /var/lib/grafana/dashboards, readOnly: true}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: data, mountPath: /var/lib/grafana}
+      volumes:
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "grafana/provisioning") | indent 14 }}
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "grafana/dashboards") | indent 14 }}
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list)) | indent 8 }}
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "grafana_admin_password" "opensearch_admin_password")) | indent 8 }}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "name" "data" "component" "grafana" "size" $m.grafana.persistence.size "class" $m.grafana.persistence.storageClass) | indent 4 }}
+{{- end }}

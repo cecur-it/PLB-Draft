@@ -1,0 +1,81 @@
+[errow-entrypoint] waiting for the Docker daemon at unix:///var/run/docker.sock (timeout 120s)
+[errow-entrypoint] sandbox image present: vendetta-stack/errow-sandbox:1.0.0
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test initiated                                                  │
+│                                                                              │
+│  Target  http://host.docker.internal:3000                                    │
+│  Output  errow_runs/host-docker-internal-3000_f36f                           │
+│                                                                              │
+│  Vulnerabilities will be displayed in real-time.                             │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test in progress                                                │
+│                                                                              │
+│  Model openai/cs3-errow-security                                             │
+│  Vulnerabilities 0                                                           │
+│                                                                              │
+│  Input Tokens 170.2K  ·  Cached Tokens 0                                     │
+│  Output Tokens 1.1K  ·  Cost $0.0000                                         │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test summary                                                    │
+│                                                                              │
+│  # Executive Summary                                                         │
+│                                                                              │
+│  External assessment of OWASP Juice Shop at                                  │
+│  http://host.docker.internal:3000 revealed security headers indicating       │
+│  standard web protections but no immediate vulnerability indicators in the   │
+│  tested endpoints. Response bodies contain product data including Apple      │
+│  Juice and related items.                                                    │
+│                                                                              │
+│  # Methodology                                                               │
+│                                                                              │
+│  OWASP WSTG framework applied to black-box external testing of the publicly  │
+│  exposed endpoint.                                                           │
+│                                                                              │
+│  # Technical Analysis                                                        │
+│                                                                              │
+│  The server responded with standard security headers                         │
+│  (X-Content-Type-Options, X-Frame-Options, Feature-Policy) indicating        │
+│  baseline web application protection. The /rest/products/search endpoint     │
+│  returned JSON product data including Apple Juice entries with proper        │
+│  content-type and encoding. No suspicious responses observed during limited  │
+│  testing.                                                                    │
+│                                                                              │
+│  # Recommendations                                                           │
+│                                                                              │
+│  **Immediate**: Validate security configuration headers for proper           │
+│  enforcement and assess application-specific security controls.              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test completed                                                  │
+│                                                                              │
+│  Target  http://host.docker.internal:3000                                    │
+│  Vulnerabilities  0 (No exploitable vulnerabilities detected)                │
+│                                                                              │
+│  Input Tokens 170.2K  ·  Output Tokens 1.1K                                  │
+│                                                                              │
+│  Output  /workspace/errow_runs/host-docker-internal-3000_f36f                │
+│                                                                              │
+│  View    errow view host-docker-internal-3000_f36f                           │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+errow.ai  ·  docs.errow.ai  ·  discord.gg/errow-ai
+
+EXIT=0

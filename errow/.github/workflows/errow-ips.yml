@@ -1,0 +1,153 @@
+name: Refresh Errow™ HUD IPs
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'     
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: errow-hud
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Fetch DShield block list
+        id: fetch
+        env:
+          ISC_UA: "ErrowHUD/1.0 (github-actions; contact: you@example.com)"
+        run: |
+          set -euo pipefail
+          RAW=$(curl --fail-with-body -sS -A "$ISC_UA" --max-time 20 \
+                  https://isc.sans.edu/block.txt) || {
+            echo "::warning::block.txt fetch failed; skipping"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          ROWS=$(printf '%s\n' "$RAW" \
+                | grep -v '^#' \
+                | grep -v '^[[:space:]]*$' \
+                | head -5)
+
+          ROW_COUNT=$(printf '%s\n' "$ROWS" | wc -l | tr -d ' ')
+          if [ "$ROW_COUNT" -ne 5 ]; then
+            echo "::warning::expected 5 data rows, got $ROW_COUNT; skipping"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Base64 to avoid quoting issues in GITHUB_OUTPUT
+          B64=$(printf '%s' "$ROWS" | base64 -w0)
+          echo "rows_b64=$B64" >> "$GITHUB_OUTPUT"
+          echo "ok=true"       >> "$GITHUB_OUTPUT"
+          echo "rows:"
+          printf '%s\n' "$ROWS"
+
+      - name: Patch docs/logo.svg
+        if: steps.fetch.outputs.ok == 'true'
+        env:
+          ROWS_B64: ${{ steps.fetch.outputs.rows_b64 }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, os, re
+
+          rows_text = base64.b64decode(os.environ["ROWS_B64"]).decode("utf-8")
+          rows = [r for r in rows_text.strip().split("\n") if r.strip()]
+          assert len(rows) == 5, f"expected 5 rows, got {len(rows)}"
+
+          MAX_NAME  = 24
+          MAX_EMAIL = 32
+          EMAIL_FALLBACK = "state_actors@cecur-it.io"
+
+          def clean_name(raw):
+              raw = (raw or "").strip()
+              if raw in ("", "-", "None", ">>UNKNOWN<<"):
+                  return "UNKNOWN"
+              n = re.sub(r"[^A-Za-z0-9]+", "_", raw).strip("_").upper()
+              return n[:MAX_NAME] or "UNKNOWN"
+
+          def clean_email(raw):
+              raw = (raw or "").strip()
+              if raw in ("", "-", "None", ">>UNKNOWN<<"):
+                  return EMAIL_FALLBACK
+              # keep local@domain chars only; strip anything suspicious
+              raw = re.sub(r"[^A-Za-z0-9@._+\-]", "", raw)
+              if "@" not in raw:
+                  return EMAIL_FALLBACK
+              return raw[:MAX_EMAIL] or EMAIL_FALLBACK
+
+          # ── Extract the 5 pairs for the HUD (unchanged from previous version)
+          pairs = []
+          for row in rows:
+              cols = row.split("\t")
+              ip   = cols[0].strip()
+              name = cols[4] if len(cols) > 4 else "-"
+              pairs.append((clean_name(name), ip))
+
+          # ── Footer: top row's abuse email
+          top_cols  = rows[0].split("\t")
+          top_email = clean_email(top_cols[6] if len(top_cols) > 6 else "")
+
+          # ── Patch SVG
+          svg = open("docs/logo.svg").read()
+
+          # 1) HUD lines (font-size="11")
+          hud_pat = re.compile(
+              r'(<text\b[^>]*\bfont-size="11"[^>]*>)'
+              r'([^<]*?)'
+              r'( // )'
+              r'((?:\d{1,3}\.){3}\d{1,3})'
+          )
+          idx = 0
+          def hud_repl(m):
+              nonlocal idx
+              if idx >= len(pairs):
+                  return m.group(0)
+              name, ip = pairs[idx]
+              idx += 1
+              return f"{m.group(1)}{name}{m.group(3)}{ip}"
+
+          svg, n_hud = hud_pat.subn(hud_repl, svg)
+          if n_hud != 5:
+              raise SystemExit(
+                  f"Expected 5 HUD lines, matched {n_hud}. Each HUD <text> "
+                  "must have font-size=\"11\" and the form `PREFIX // 0.0.0.0`."
+              )
+
+          # 2) Footer (ERROW™ // <email>)
+          foot_pat = re.compile(
+              r'(<text\b[^>]*>)ERROW™ // [^<]*(</text>)'
+          )
+          svg, n_foot = foot_pat.subn(
+              rf'\g<1>ERROW™ // {top_email}\g<2>', svg, count=1
+          )
+          if n_foot != 1:
+              raise SystemExit(
+                  f"Footer not found (matched {n_foot} times). Expected exactly "
+                  "one <text ...>ERROW™ // ...</text> element."
+              )
+
+          open("docs/logo.svg", "w").write(svg)
+          print("HUD   :", pairs)
+          print("Footer:", top_email)
+          PY
+
+      - name: Commit & push
+        if: steps.fetch.outputs.ok == 'true'
+        run: |
+          if git diff --quiet docs/logo.svg; then
+            git commit --allow-empty -am "chore(hud): heartbeat [skip ci]"
+          else
+            git commit -am "chore(hud): refresh DShield netnames, IPs, footer [skip ci]"
+          fi
+          git push

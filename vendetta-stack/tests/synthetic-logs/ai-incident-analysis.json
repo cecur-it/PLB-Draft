@@ -1,0 +1,23 @@
+{
+  "triageSummary": "Repeated failed SSH logins for non-existent accounts from 203.0.113.50 against scan-target.vendetta.lab, consistent with an automated credential-guessing run.",
+  "severityAssessment": "HIGH",
+  "mitreTactic": "Credential Access",
+  "mitreTechnique": "T1110 Brute Force",
+  "probableRootCause": "Internet-exposed sshd accepting password authentication with no source rate limiting or ban policy.",
+  "recommendedImmediateAction": "Block 203.0.113.50 at the perimeter, disable SSH password authentication in favour of keys, and verify no attempt succeeded in /var/log/auth.log.",
+  "confidenceScore": 87,
+  "engineUsed": "nemotron-3-nano:30b",
+  "needsVerification": true,
+  "toolCalls": [
+    {
+      "tool": "nmap",
+      "args": {
+        "target": "scan-target.vendetta.lab",
+        "scan_type": "-sT",
+        "ports": "1-1024"
+      },
+      "rationale": "Confirm which management ports are exposed on the targeted host before choosing a containment action."
+    }
+  ],
+  "gpuSeconds": 6.42
+}

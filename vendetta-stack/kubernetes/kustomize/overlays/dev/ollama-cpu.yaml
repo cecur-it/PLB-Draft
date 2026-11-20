@@ -1,0 +1,20 @@
+# Traces: PROMPT section 1 Tier 3 (dev cluster); ollama/RUNTIME.md (CPU serving, OLLAMA_PRELOAD_STRICT=false keeps the pod Ready
+# while the model downloads). Removes the GPU limit so the pod schedules on a laptop or CI cluster.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+spec:
+  template:
+    spec:
+      containers:
+        - name: ollama
+          env:
+            - {name: OLLAMA_PRELOAD_STRICT, value: "false"}
+            - {name: OLLAMA_NUM_PARALLEL, value: "1"}
+          resources:
+            requests: {cpu: "2", memory: 8Gi}
+            limits:
+              cpu: "4"
+              memory: 16Gi
+              nvidia.com/gpu: null

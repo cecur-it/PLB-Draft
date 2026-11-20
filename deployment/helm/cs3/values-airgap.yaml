@@ -1,0 +1,32 @@
+# Air-gapped: images from an internal registry, models from a verified bundle on the PVC,
+# zero egress. Load the bundle first: operations/model-update-rollback.md
+global:
+  profile: airgap
+  imageRegistry: registry.airgap.internal:5000
+  imagePullSecrets: []
+secrets:
+  existingSecret: cs3-credentials   # no GEMINI_API_KEY / DEEPSEEK_API_KEY keys, ever
+console:
+  image: { repository: cs3/cs3-soc-console, tag: "", digest: "" }  # pin digest from the verified release
+  replicas: 2
+postgres:
+  enabled: true
+  image: { repository: library/postgres, tag: 16-alpine, pullPolicy: IfNotPresent }
+ollama:
+  enabled: true
+  replicas: 2
+  image: { repository: ollama/ollama, tag: 0.40.5, digest: "sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241", pullPolicy: IfNotPresent }
+  pullModelsOnStart: false
+  gpu: { enabled: true, count: 1, resourceName: nvidia.com/gpu }
+ollamaLb:
+  image: { repository: library/nginx, tag: 1.27-alpine, pullPolicy: IfNotPresent }
+indexer:
+  url: https://wazuh-indexer.cs3-siem.svc:9200
+ingress:
+  host: soc.airgap.internal
+  tls: { enabled: true, secretName: cs3-console-tls }
+  mtls: { enabled: true, caSecret: cs3/cs3-agent-ca, verify: "on", verifyDepth: 2 }
+networkPolicy:
+  enabled: true
+  egressUnrestricted: false
+  allowEgressCIDRs: []

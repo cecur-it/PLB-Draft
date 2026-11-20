@@ -1,0 +1,6 @@
+[
+  { "id": "r1", "incident": "Credential dumping on WS-114", "allowedActionTypes": ["quarantine", "identity_reset", "forensics", "c2_sweep", "patch", "monitor"] },
+  { "id": "r2", "incident": "Ransomware staging on FILESRV02", "allowedActionTypes": ["quarantine", "identity_reset", "forensics", "c2_sweep", "patch", "monitor"] },
+  { "id": "r3", "incident": "Unauthorised PLC logic download", "allowedActionTypes": ["quarantine", "forensics", "monitor", "identity_reset"] },
+  { "id": "r4", "incident": "Suspicious scheduled task persistence on APP-09", "allowedActionTypes": ["quarantine", "forensics", "patch", "monitor", "identity_reset"] }
+]

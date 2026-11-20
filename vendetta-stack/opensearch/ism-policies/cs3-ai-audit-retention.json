@@ -1,0 +1,58 @@
+{
+  "policy": {
+    "description": "NIST SP 800-53 AU-9 retention for the hash-chained AI audit trail: indices are write-blocked (read_only) after 1d, force-merged and kept with 1 replica, move to box_type=cold at 90d with a snapshot to vendetta-snapshots, and are deleted after 7 years (2555d). The snapshot action sits in the state that precedes delete and is retried; if it keeps failing the index stays in cold and is never deleted without a snapshot. Auto-attached to cs3-ai-audit-* (priority 100). Late events older than 1d are rejected by the write block.",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          { "index_priority": { "priority": 100 } }
+        ],
+        "transitions": [
+          { "state_name": "sealed", "conditions": { "min_index_age": "1d" } }
+        ]
+      },
+      {
+        "name": "sealed",
+        "actions": [
+          { "read_only": {} },
+          { "replica_count": { "number_of_replicas": 1 } },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "10m" },
+            "force_merge": { "max_num_segments": 1 }
+          }
+        ],
+        "transitions": [
+          { "state_name": "cold", "conditions": { "min_index_age": "90d" } }
+        ]
+      },
+      {
+        "name": "cold",
+        "actions": [
+          { "index_priority": { "priority": 10 } },
+          { "allocation": { "require": { "box_type": "cold" }, "wait_for": false } },
+          {
+            "retry": { "count": 10, "backoff": "exponential", "delay": "30m" },
+            "snapshot": {
+              "repository": "vendetta-snapshots",
+              "snapshot": "{{ctx.index}}-{{ctx.indexUuid}}"
+            }
+          }
+        ],
+        "transitions": [
+          { "state_name": "delete", "conditions": { "min_index_age": "2555d" } }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          { "delete": {} }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      { "index_patterns": ["cs3-ai-audit-*"], "priority": 100 }
+    ]
+  }
+}

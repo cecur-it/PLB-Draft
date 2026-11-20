@@ -1,0 +1,152 @@
+{
+  "index_patterns": ["errow-findings-*", "errow-sarif-*"],
+  "priority": 200,
+  "version": 1,
+  "_meta": {
+    "description": "Errow findings: one raw SARIF 2.1.0 result per document as shipped by errow-shipper (CONTRACT s15) plus `rule` (the matching tool.driver.rules[] descriptor). Field names are the SARIF/Errow names; renames into the Vendetta alert schema happen only in the sarif-to-vendetta-alert pipeline. Daily indices errow-findings-YYYY.MM.dd and errow-sarif-YYYY.MM.dd share this mapping.",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 2000,
+      "index.mapping.ignore_malformed": true
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "numeric_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "stream": { "type": "keyword" },
+        "run": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "doc_id": { "type": "keyword" },
+        "ruleId": { "type": "keyword" },
+        "ruleIndex": { "type": "integer" },
+        "level": { "type": "keyword" },
+        "kind": { "type": "keyword" },
+        "message": {
+          "properties": {
+            "text": { "type": "text", "norms": false },
+            "markdown": { "type": "text", "norms": false }
+          }
+        },
+        "locations": {
+          "properties": {
+            "physicalLocation": {
+              "properties": {
+                "artifactLocation": {
+                  "properties": {
+                    "uri": { "type": "keyword", "ignore_above": 1024 },
+                    "uriBaseId": { "type": "keyword" }
+                  }
+                },
+                "region": {
+                  "properties": {
+                    "startLine": { "type": "integer" },
+                    "startColumn": { "type": "integer" },
+                    "endLine": { "type": "integer" },
+                    "endColumn": { "type": "integer" }
+                  }
+                }
+              }
+            },
+            "logicalLocations": {
+              "properties": {
+                "fullyQualifiedName": { "type": "keyword", "ignore_above": 1024 },
+                "name": { "type": "keyword", "ignore_above": 1024 },
+                "kind": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "partialFingerprints": {
+          "properties": {
+            "primaryLocationLineHash": { "type": "keyword" }
+          }
+        },
+        "fixes": { "type": "object", "enabled": false },
+        "properties": {
+          "properties": {
+            "security-severity": { "type": "float" },
+            "errow_vuln_class_hash": { "type": "keyword" },
+            "synthetic_location": { "type": "boolean" },
+            "tags": { "type": "keyword" },
+            "errow": {
+              "properties": {
+                "id": { "type": "keyword" },
+                "severity": { "type": "keyword" },
+                "cvss": { "type": "float" },
+                "timestamp": { "type": "date" },
+                "target": { "type": "keyword" },
+                "endpoint": { "type": "keyword" },
+                "method": { "type": "keyword" },
+                "cve": { "type": "keyword" },
+                "cwe": { "type": "keyword" },
+                "confidence": { "type": "keyword" },
+                "impact": { "type": "text", "norms": false },
+                "technical_analysis": { "type": "text", "norms": false },
+                "remediation_steps": { "type": "text", "norms": false },
+                "counterevidence": { "type": "text", "norms": false },
+                "confidence_rationale": { "type": "text", "norms": false },
+                "severity_change_conditions": { "type": "text", "norms": false },
+                "fix_verification": { "type": "text", "norms": false },
+                "dependency_metadata": { "type": "object", "enabled": false },
+                "poc": {
+                  "properties": {
+                    "description": { "type": "text", "norms": false },
+                    "script_available": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "rule": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword", "ignore_above": 1024 },
+            "shortDescription": { "properties": { "text": { "type": "text", "norms": false } } },
+            "fullDescription": { "properties": { "text": { "type": "text", "norms": false } } },
+            "defaultConfiguration": { "properties": { "level": { "type": "keyword" } } },
+            "help": { "type": "object", "enabled": false },
+            "helpUri": { "type": "keyword", "ignore_above": 1024 },
+            "properties": {
+              "properties": {
+                "security-severity": { "type": "float" },
+                "tags": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "cwe": { "type": "keyword" },
+        "owasp": { "type": "keyword" },
+        "severity": { "type": "keyword" },
+        "mitre": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "tactic": { "type": "keyword" },
+            "technique": { "type": "keyword" }
+          }
+        },
+        "ingest_error": {
+          "type": "text",
+          "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } }
+        }
+      }
+    }
+  }
+}

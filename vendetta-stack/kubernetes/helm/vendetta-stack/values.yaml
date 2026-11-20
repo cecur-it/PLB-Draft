@@ -1,0 +1,474 @@
+# Traces: PROMPT section 1 Tier 3; CONTRACT sections 1 (pins), 2 (ports, secrets, PKI), 8 (addenda), 11 (RUNTIME.md rules).
+# Defaults describe a production-shaped, in-cluster stack on a cloud/on-prem cluster with one GPU node pool.
+# Service names are identical to the compose service names because the shipped configs address them literally
+# (https://opensearch:9200, fluent-bit:2020, llm-gateway:9101 ...): one release per namespace.
+# Secret VALUES never appear here: only the names of Secrets that already exist (see kubernetes/README.md).
+
+global:
+  imageRegistry: ""
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+  profile: cloud
+  stackVersion: "1.0.0"
+  storageClass: ""
+  sharedStorageClass: ""
+  sharedAccessMode: ReadWriteMany
+
+images:
+  fluentBit:
+    repository: fluent/fluent-bit
+    tag: 3.2.10-debug
+    digest: sha256:ddc7932ed69e1e7bc34a62c57525c49f3947dc5fcee8b92256a33ae1836f3cda
+  fluentBitDistroless:
+    repository: fluent/fluent-bit
+    tag: 3.2.10
+    digest: sha256:d6dec000c4929a439562525728c708f6e99800d7ddc82efd6aa4f45f3a20b562
+  fluentd:
+    repository: vendetta-stack/fluentd
+    tag: ""
+    digest: ""
+  opensearch:
+    repository: opensearchproject/opensearch
+    tag: 2.17.1
+    digest: sha256:1193b7c29c5d63028523728243cc4da047ac49f697a8f8105e5aeee2f89bcc4c
+  dashboards:
+    repository: opensearchproject/opensearch-dashboards
+    tag: 2.17.1
+    digest: sha256:dc12b6f576aae6024780c01b3cc81abdf611d34340371980ef8edc7738479b8f
+  prometheus:
+    repository: prom/prometheus
+    tag: v2.55.1
+    digest: sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
+  alertmanager:
+    repository: prom/alertmanager
+    tag: v0.27.0
+    digest: sha256:e13b6ed5cb929eeaee733479dce55e10eb3bc2e9c4586c705a4e8da41e5eacf5
+  grafana:
+    repository: grafana/grafana
+    tag: 10.4.19
+    digest: sha256:a9043254ba16fb10945cc27333963dfd08eccbb43b51f1222d831cc564e3a1f4
+  haproxy:
+    repository: haproxy
+    tag: 3.0-alpine
+    digest: sha256:d2b3567d836f3b7d174edb6d6f611ed5308e7966e53a9cd9a597e0415a298efd
+  nginx:
+    repository: nginx
+    tag: 1.27-alpine
+    digest: sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+  python:
+    repository: python
+    tag: 3.12-slim-bookworm
+    digest: sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
+  ollama:
+    repository: vendetta-stack/ollama
+    tag: ""
+    digest: ""
+  dind:
+    repository: docker
+    tag: 27-dind
+    digest: sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+  busybox:
+    repository: busybox
+    tag: "1.37"
+    digest: sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+  vendettaManager:
+    repository: wazuh/wazuh-manager
+    tag: 4.9.2
+    digest: sha256:b906ebfc77d78446e9b676e1a0b3cd78e2bf3ac2341688f1726b09c29e0aa826
+  llmGateway:
+    repository: vendetta-stack/llm-gateway
+    tag: ""
+    digest: ""
+  errow:
+    repository: vendetta-stack/errow
+    tag: ""
+    digest: ""
+  errowSandbox:
+    repository: vendetta-stack/errow-sandbox
+    tag: ""
+    digest: ""
+  errowMcp:
+    repository: vendetta-stack/errow-mcp
+    tag: ""
+    digest: ""
+  errowShipper:
+    repository: vendetta-stack/errow-shipper
+    tag: ""
+    digest: ""
+  errowFeedback:
+    repository: vendetta-stack/errow-feedback
+    tag: ""
+    digest: ""
+
+secrets:
+  existingSecret: vendetta-stack-secrets
+  legsSecret: vendetta-cs3-legs
+  approvalSecret: vendetta-feedback-approval
+
+pki:
+  existingSecret: vendetta-pki
+
+certManager:
+  enabled: false
+  duration: 8520h
+  renewBefore: 720h
+  issuer:
+    create: true
+    kind: Issuer
+    name: vendetta-ca
+    caCommonName: Vendetta Stack Private CA
+
+externalSecrets:
+  enabled: false
+  apiVersion: external-secrets.io/v1beta1
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vendetta-secret-store
+  remoteKeyPrefix: vendetta-stack
+
+config:
+  llmMode: local
+  messageMaxChars: 8000
+  primaryModel: nemotron-3-nano:30b
+  fallbackModel: gemma4:26b
+  # Security/Errow: Nemotron is primary and Gemma 4 31B is the only fallback; Qwensploit is eval-only.
+  securityModel: nemotron-3-nano:30b
+  errowSecurityModel: nemotron-3-nano:30b
+  errowSecurityRoute: cs3-errow-security
+  reasoningDeepModel: gemma4:31b
+  triageModel: nemotron-3-nano:30b
+  forensicModel: gemma4:26b
+  guardModel: gemma4:26b
+  triageMaxTokens: 1024
+  securityMaxTokens: 2048
+  errowMaxTokens: 4096
+  triageCache: true
+  securityCache: false
+  errowCache: false
+  mcpLive: false
+  feedbackLive: false
+  feedbackForensic: true
+  # Per-service overrides; empty = use errowTargets.
+  feedbackAllowedTargets: ""
+  feedbackArCommand: "!host-isolate.sh"
+  # Distinct approver keys required per live action. Per-approver keys are keys/*.key in the approval Secret;
+  # a shared key alone cannot satisfy more than 1, and approval.py clamps the threshold to the keys present.
+  approvalThreshold: 2
+  errowCloudEnabled: false
+  errowCloudUrl: https://app.errow.ai
+  errowTelemetry: false
+  # Single source of truth for the Errow target allow-lists (comma list of host globs). errowAllowedTargets (entrypoint) and
+  # feedbackAllowedTargets (feedback loop) default from it; the errow-mcp list (mcpTargetsFile yaml) is additive and manual:
+  # run scripts/check-allowlists.sh to catch drift.
+  errowTargets: "scan-target.vendetta.lab"
+  errowAllowedTargets: ""
+  vendettaApiUser: wazuh-wui
+  opensearchUser: admin
+  mcpTargetsFile: ""
+  mcpAllowedClients: "llm-gateway,errow,errow-mcp"
+  logRetentionPrometheus: 15d
+
+opensearch:
+  enabled: true
+  replicas: 3
+  clusterName: vendetta-stack
+  boxType: hot
+  javaOpts: "-Xms2g -Xmx2g"
+  memoryLock: true
+  setMaxMapCount: true
+  waitTimeout: 600
+  applyReplicas: auto
+  resources:
+    requests: {cpu: "1", memory: 4Gi}
+    limits: {cpu: "4", memory: 4Gi}
+  persistence:
+    size: 100Gi
+    storageClass: ""
+  snapshots:
+    enabled: true
+    size: 100Gi
+    existingClaim: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  dashboards:
+    enabled: false
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {cpu: "1", memory: 1Gi}
+
+fluentd:
+  enabled: true
+  logLevel: info
+  workers: 1
+  osBufferLimit: 2GB
+  vendettaSeverityRegex: "^(medium|high|critical)$"
+  errowSeverityRegex: "^$"
+  feedbackSeverityRegex: "^critical$"
+  vendettaExecdAgentRegex: "^$"
+  aggregatorLegs: ""
+  esocUrl: ""
+  siemUrl: ""
+  siemAuthScheme: Bearer
+  esocTokenFile: ""
+  siemTokenFile: ""
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  persistence:
+    size: 20Gi
+    storageClass: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+fluentBit:
+  enabled: true
+  variant: distroless
+  logLevel: info
+  forwardTls: "on"
+  forwardTlsVerify: "on"
+  forwardStorageLimit: 2G
+  epsLimit: 500
+  tuiPort: 24225
+  healthScrapeSeconds: 30
+  hostLogs:
+    enabled: false
+    journalPath: /var/log/journal
+  sharedLogs:
+    enabled: true
+  # Seconds a repeated manager alert is folded into the existing CS3 alert (0 disables).
+  alertDedupWindowSeconds: 300
+  legs:
+    console:
+      enabled: false
+      host: ""
+      port: 443
+      tls: "On"
+      ingestKeyKey: console_ingest_key
+    esoc:
+      enabled: false
+      host: ""
+      port: 4317
+      grpc: "On"
+      tls: "On"
+    siem:
+      enabled: false
+      host: ""
+      port: 443
+      uri: /v1/events
+      tls: "On"
+      format: json_lines
+      authScheme: Bearer
+      tokenKey: siem_token
+    # Host logs through the manager rule engine and its alerts back into CS3. Requires the manager (or an
+    # existing one) and the console ingest key: the alert leg posts to the same Console endpoint.
+    manager:
+      enabled: false
+      host: vendetta-manager
+      port: 5140
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 256Mi}
+  stateSizeLimit: 2Gi
+  tolerations:
+    - operator: Exists
+  nodeSelector: {}
+
+llmGateway:
+  enabled: true
+  replicas: 2
+  mtls: optional
+  maxConcurrency: 4
+  maxQueue: 512
+  logLevel: INFO
+  timeoutMs: 60000
+  gpuShare: "1.0"
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  lb:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 500m, memory: 128Mi}
+  persistence:
+    size: 5Gi
+    storageClass: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+ollama:
+  mode: gpu
+  replicas: 1
+  numParallel: 4
+  maxLoadedModels: 3
+  keepAlive: 30m
+  # Includes the deep-reasoning model so the security/Errow fallback is provisioned before it is needed.
+  preloadModels: "nemotron-3-nano:30b,gemma4:26b,gemma4:31b"
+  preloadStrict: true
+  readyTimeoutSeconds: 120
+  startupTimeoutSeconds: 1800
+  bundle:
+    existingClaim: ""
+  gpu:
+    resourceName: nvidia.com/gpu
+    count: 1
+    runtimeClassName: ""
+  resources:
+    requests: {cpu: "4", memory: 16Gi}
+    limits: {cpu: "8", memory: 32Gi}
+  proxy:
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 500m, memory: 128Mi}
+  pullEgress: []
+  persistence:
+    size: 200Gi
+    storageClass: ""
+  nodeSelector:
+    vendetta-stack/gpu: "true"
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  affinity: {}
+  mock:
+    latencyMs: 0
+    downModels: ""
+    toolTarget: scan-target.vendetta.lab
+
+errow:
+  enabled: true
+  sandboxEnabled: true
+  runner:
+    resources:
+      requests: {cpu: 500m, memory: 512Mi}
+      limits: {cpu: "2", memory: 2Gi}
+  dind:
+    runtimeClassName: ""
+    resources:
+      requests: {cpu: 500m, memory: 512Mi}
+      limits: {cpu: "2", memory: 2Gi}
+    persistence:
+      size: 40Gi
+      storageClass: ""
+    targetEgress: []
+    pullEgress: []
+  viewer:
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    ingress:
+      enabled: false
+      className: nginx
+      host: errow-viewer.vendetta.lab
+      tlsSecret: vendetta-stack-tls
+      basicAuthSecret: errow-viewer-basic-auth
+      annotations: {}
+  mcp:
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 256Mi}
+  shipper:
+    interval: 10
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+  feedback:
+    pollInterval: 60
+    poller:
+      enabled: false
+      schedule: "*/5 * * * *"
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: "1", memory: 256Mi}
+    persistence:
+      size: 2Gi
+      storageClass: ""
+  persistence:
+    runsSize: 20Gi
+    ndjsonSize: 5Gi
+    shipperStateSize: 1Gi
+  scanTarget:
+    enabled: false
+  bundle:
+    existingClaim: ""
+    sandboxTar: errow-sandbox.tar
+
+manager:
+  enabled: false
+  # CTI / vulnerability feed updater in the manager image. The stock default fetches from cti.wazuh.com every 60m, which has
+  # no egress in most clusters (the NetworkPolicy does not grant it) and logs a content-updater ERROR on every interval.
+  # off disables the updater, mirror points it at ctiUrl (an internal CTI mirror), auto leaves the image default alone.
+  feedMode: off
+  ctiUrl: ""
+  agentService:
+    type: ClusterIP
+    annotations: {}
+  capabilities: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID, KILL, SYS_CHROOT]
+  resources:
+    requests: {cpu: "1", memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
+  persistence:
+    size: 20Gi
+    storageClass: ""
+  nodeSelector: {}
+  tolerations: []
+
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+    retention: 15d
+    resources:
+      requests: {cpu: 250m, memory: 256Mi}
+      limits: {cpu: "1", memory: 512Mi}
+    persistence:
+      size: 20Gi
+      storageClass: ""
+  alertmanager:
+    enabled: true
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 128Mi}
+    persistence:
+      size: 1Gi
+      storageClass: ""
+  grafana:
+    enabled: true
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+    persistence:
+      size: 5Gi
+      storageClass: ""
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}
+
+networkPolicy:
+  enabled: true
+  dnsNamespace: kube-system
+  dnsPodLabels:
+    k8s-app: kube-dns
+  ingressControllerNamespace: ingress-nginx
+  externalEgress: []
+
+podDisruptionBudget:
+  enabled: true
+
+serviceAccount:
+  annotations: {}

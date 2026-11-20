@@ -1,0 +1,70 @@
+# cs3-llama-cpp.service — non-CUDA GGUF fallback for the sovereign LLM tier.
+#
+# Traces: PROMPT §1 Tier 4 (llama.cpp CPU fallback when no CUDA/Metal accelerator qualifies),
+#         CONTRACT §8.1 (the inference endpoint is 127.0.0.1:11434; the mTLS worker proxy and the
+#         gateway are unchanged), PROMPT §3 (systemd sandbox).
+#
+# Installed by ollama/install-llama.cpp.sh to /etc/systemd/system/cs3-llama-cpp.service.
+# llama-server is OpenAI-compatible (/v1/chat/completions, /v1/models) and answers /health, but it
+# has no /api/tags or /api/version: point health probes at /v1/models when this unit is in use.
+#
+# Conflicts= keeps it mutually exclusive with cs3-ollama.service: both bind 127.0.0.1:11434.
+# Per-host values (model alias, GGUF path, threads, context, slots) live in
+# /etc/cs3/llama-cpp.env, written by the installer. --host is fixed here on purpose so the
+# environment file cannot widen the listener.
+#
+# Sandbox: the 15 directives of cs3-ollama.service (with PrivateDevices=true — CPU only, no GPU
+# device nodes needed) plus SystemCallArchitectures, RestrictNamespaces, ProtectProc/ProcSubset,
+# ProtectClock, ProtectHostname, UMask and an IPv4/IPv6 allow-list that only admits loopback.
+# Verified with: systemd-analyze verify cs3-llama-cpp.service
+
+[Unit]
+Description=CS3 llama.cpp llama-server (GGUF fallback, loopback only)
+Documentation=https://github.com/ggml-org/llama.cpp/tree/master/examples/server
+After=network.target
+Conflicts=cs3-ollama.service
+ConditionPathExists=/etc/cs3/llama-cpp.env
+
+[Service]
+Type=simple
+User=cs3-llama
+Group=cs3-llama
+WorkingDirectory=/var/lib/cs3-llama-cpp
+EnvironmentFile=/etc/cs3/llama-cpp.env
+ExecStart=/opt/cs3-llama-cpp/bin/llama-server --host 127.0.0.1 --port 11434 --model ${LLAMA_MODEL_PATH} --alias ${LLAMA_MODEL_ID} --threads ${LLAMA_THREADS} --ctx-size ${LLAMA_CTX_SIZE} --parallel ${LLAMA_PARALLEL} --metrics
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+LimitNOFILE=65536
+
+# --- Sandbox (same 15 directives as cs3-ollama.service) ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+SystemCallFilter=@system-service
+LockPersonality=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=true
+
+# --- Additional hardening available because this unit is CPU-only ---
+ReadOnlyPaths=/var/lib/cs3-llama-cpp/models
+SystemCallArchitectures=native
+RestrictNamespaces=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectClock=true
+ProtectHostname=true
+UMask=0077
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+# OpenSearch Dashboards 2.17.1 for vendetta-stack (contract section 2: 5601).
+# No secret lives here: dashboards/entrypoint.sh puts opensearch.password and
+# opensearch_security.cookie.password into the Dashboards keystore at start-up,
+# derived from the mounted secret file /run/secrets/opensearch_admin_password.
+server.host: "0.0.0.0"
+server.port: 5601
+server.name: vendetta-dashboards
+server.maxPayloadBytes: 10485760
+server.rewriteBasePath: false
+
+opensearch.hosts: ["https://opensearch:9200"]
+opensearch.username: admin
+opensearch.ssl.verificationMode: full
+opensearch.ssl.certificateAuthorities: ["/pki/ca.crt"]
+opensearch.requestHeadersWhitelist: ["authorization", "securitytenant"]
+opensearch.requestTimeout: 60000
+opensearch.shardTimeout: 30000
+
+opensearch_security.multitenancy.enabled: false
+opensearch_security.cookie.secure: false
+opensearch_security.cookie.isSameSite: Lax
+opensearch_security.session.ttl: 3600000
+opensearch_security.session.keepalive: true
+
+opensearchDashboards.defaultAppId: "dashboards"
+telemetry.enabled: false
+telemetry.allowChangingOptInStatus: false
+newsfeed.enabled: false
+logging.verbose: false

@@ -1,0 +1,59 @@
+{
+  "@timestamp": "2026-11-12T09:14:31.482Z",
+  "stream": "findings",
+  "run": "scan-target-vendetta-lab-8080_3f9a",
+  "source": "errow",
+  "doc_id": "7c1f0e5b3a94d2886e0b5f1c9a4d7e3320b8c6a15f94e7d2b3a0c8e1f6d95a42",
+  "ruleId": "CWE-89",
+  "ruleIndex": 0,
+  "level": "error",
+  "message": {
+    "text": "SQL Injection in product search (q parameter)\n\nThe `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation. A single quote followed by a UNION SELECT returns rows from the users table."
+  },
+  "locations": [
+    { "physicalLocation": { "artifactLocation": { "uri": "SECURITY.md" } } },
+    { "logicalLocations": [ { "fullyQualifiedName": "/rest/products/search", "kind": "endpoint" } ] }
+  ],
+  "partialFingerprints": {
+    "primaryLocationLineHash": "29086aa0756bcc40406def84d8e48c8d99d6eecfe57aedd74acaacd79b863866"
+  },
+  "properties": {
+    "security-severity": "8.6",
+    "errow_vuln_class_hash": "091274e2ad40f12c26f944cb00be2712c536b9e81137676e98311bc2ccf04d16",
+    "synthetic_location": true,
+    "errow": {
+      "id": "vuln-0001",
+      "severity": "high",
+      "cvss": 8.6,
+      "timestamp": "2026-11-12T09:14:31.482913+00:00",
+      "target": "http://scan-target.vendetta.lab:8080",
+      "endpoint": "/rest/products/search",
+      "method": "GET",
+      "cwe": "CWE-89",
+      "impact": "An unauthenticated attacker can read arbitrary database content, including credential hashes of every account.",
+      "technical_analysis": "Response time differential (SLEEP) and boolean-based probes confirmed injection into a string context; UNION column count is 9.",
+      "remediation_steps": "Use parameterised queries / prepared statements for every database access and stop returning raw database errors to clients.",
+      "counterevidence": "No WAF or input filter was observed between the client and the application.",
+      "confidence": "high",
+      "severity_change_conditions": "Severity drops to medium if the database account is read-only and holds no credential data.",
+      "fix_verification": "Re-run the UNION and boolean probes after deploying parameterised queries; both must return an empty result set.",
+      "poc": {
+        "description": "GET /rest/products/search?q=')) UNION SELECT id,email,password,4,5,6,7,8,9 FROM Users-- returns user rows in the product list.",
+        "script_available": true
+      }
+    }
+  },
+  "rule": {
+    "id": "CWE-89",
+    "name": "SQL Injection in product search (q parameter)",
+    "shortDescription": { "text": "SQL Injection in product search (q parameter)" },
+    "fullDescription": { "text": "The `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation." },
+    "defaultConfiguration": { "level": "error" },
+    "help": {
+      "text": "Use parameterised queries / prepared statements for every database access.",
+      "markdown": "Use parameterised queries / prepared statements for every database access."
+    },
+    "properties": { "security-severity": "8.6", "tags": ["security", "CWE-89", "stride:T"] },
+    "helpUri": "https://cwe.mitre.org/data/definitions/89.html"
+  }
+}

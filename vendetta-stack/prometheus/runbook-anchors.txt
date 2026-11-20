@@ -1,0 +1,31 @@
+# Traces: PROMPT §5 Observability, CONTRACT §8.11 (docs/runbooks.md is written by the docs owner)
+# Anchors referenced by prometheus/alerts.yml (`runbook: docs/runbooks.md#<anchor>`). One line per anchor:
+#   <anchor><TAB><suggested heading text><TAB><first action>
+# GitHub slug rule: the heading text, lower-cased, spaces to hyphens, punctuation removed, must equal <anchor>.
+# prometheus/tests/validate.sh fails if alerts.yml and this list diverge, and reports (strict with --strict-docs) any anchor
+# that docs/runbooks.md does not define.
+fluent-bit-down	Fluent Bit down	Check the container and /var/log/fluent-bit free space; logs are retained on disk by the sources and resume from the tail DB offsets
+fluent-bit-output-retrying	Fluent Bit output retrying	Identify the output by name in the alert, curl its destination from the container, check TLS expiry and the token file
+fluent-bit-data-loss	Fluent Bit data loss	Inspect fluent-bit logs for the dropped chunks, restore the destination, then re-ship from the sources if retention allows
+fluent-bit-backpressure	Fluent Bit backpressure	Check Fluentd health, disk space under /var/log/fluent-bit/storage, FLB_FORWARD_STORAGE_LIMIT and the paused input name
+fluentd-node-down	Fluentd node down	Restart the failed aggregator; the surviving node serves the whole edge (upstream.conf) until both are up again
+fluentd-buffer-backlog	Fluentd buffer backlog	Look at the plugin_id in the alert, test its destination, and check OpenSearch cluster health and write blocks
+fluentd-buffer-nearly-full	Fluentd buffer nearly full	Restore the destination first; raise FLUENTD_OS_BUFFER_LIMIT only with matching disk, never delete buffer chunks
+fluentd-output-retrying	Fluentd output retrying	Read the fluentd log for the plugin_id: 401/403 token or cert, 429 busy, red index, read-only index block
+fluentd-output-errors	Fluentd output errors	Search the log for bulk item errors, then inspect dead-letter/error files for the rejected documents
+fluentd-emit-stall	Fluentd emit stall	Verify the forward path (mTLS CN fluent-bit), then the routing tests in fluentd/tests, then the label wiring in conf.d/15-routing.conf
+pipeline-dead-letter	Pipeline dead letter	Read /var/log/fluentd/dead-letter/{error,unrouted}*, fix the producer tag or the mapping, replay if needed
+llm-gateway-down	LLM gateway down	Check the container, the Ollama workers and certificates; Vendetta alerts continue without AI enrichment
+llm-failover	LLM failover	Check Ollama worker health and GPU state, then the primary model load time; fallbacks are heuristic and flagged in alerts
+llm-triage-latency	LLM triage latency	Check queue depth, GPU memory, model eviction and concurrency (GATEWAY_MAX_CONCURRENCY)
+llm-queue-saturated	LLM queue saturated	Add a worker behind ollama-lb or raise concurrency; narrow LLM_TRIAGE_VENDETTA_SEVERITY_REGEX to shed load
+llm-prompt-injection-burst	LLM prompt injection burst	Find the source host in cs3-ai-inference-* (guardrail field), isolate it, keep the blocking on
+llm-schema-violations	LLM schema violations	Compare model and prompt versions, check guardrail logs; schema failures fall back safely but indicate drift or attack
+llm-audit-chain-broken	LLM audit chain broken	Freeze the spool, preserve cs3-ai-audit-* and the gateway spool directory, verify the chain offline, open an AU-9 incident
+llm-audit-spool-backlog	LLM audit spool backlog	Check Fluent Bit :9880 reachability from the gateway and the spool disk; delivery resumes automatically
+llm-audit-data-loss	LLM audit data loss	Record the gap window, restore delivery, reconcile from gateway logs, report per the audit policy
+ollama-gpu-memory	Ollama GPU memory	Lower concurrency, unload the idle model (OLLAMA_KEEP_ALIVE) or add a GPU worker
+llm-no-inference-traffic	LLM no inference traffic	Confirm Vendetta is producing alerts, then check the http-llm-triage output and its severity regex in Fluentd
+errow-mcp-down	Errow MCP down	Check the errow-mcp container and certificate; AI-initiated tool calls are refused while it is down
+errow-mcp-denied-burst	Errow MCP denied burst	Read llm_gateway audit events of type tool_call with decision denied; identify the requesting incident and agent
+observability-self-monitoring	Observability self monitoring	Check Prometheus and Alertmanager containers, the config validation output, and the rule evaluation log

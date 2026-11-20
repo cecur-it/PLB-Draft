@@ -1,0 +1,44 @@
+{
+  "@timestamp": "2026-11-12T09:14:40.118Z",
+  "event_type": "inference",
+  "request_id": "5e2a9c41-7b3d-4f08-a6d1-9c0e3b7f25a8",
+  "tenant_id": "tenant-lab",
+  "incident_id": "1794474721.4872013",
+  "alert_id": "1794474721.4872013",
+  "model": "nemotron-3-nano:30b",
+  "role": "triage",
+  "engine_used": "nemotron-3-nano:30b",
+  "fallback": false,
+  "fallback_reason": null,
+  "latency_ms": 6420,
+  "gpu_seconds": 6.42,
+  "tokens_in": 1184,
+  "tokens_out": 311,
+  "verdict": "escalate",
+  "guardrail": { "passed": true, "violations": [] },
+  "input_sha256": "9f2c4d6e8a1b3c5d7e9f0a2b4c6d8e0f1a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d",
+  "input_chars": 1932,
+  "analysis": {
+    "triageSummary": "Repeated failed SSH logins for non-existent accounts from 203.0.113.50 against scan-target.vendetta.lab, consistent with an automated credential-guessing run.",
+    "severityAssessment": "HIGH",
+    "mitreTactic": "Credential Access",
+    "mitreTechnique": "T1110 Brute Force",
+    "probableRootCause": "Internet-exposed sshd accepting password authentication with no source rate limiting or ban policy.",
+    "recommendedImmediateAction": "Block 203.0.113.50 at the perimeter, disable SSH password authentication in favour of keys, and verify no attempt succeeded in /var/log/auth.log.",
+    "confidenceScore": 87,
+    "engineUsed": "nemotron-3-nano:30b",
+    "needsVerification": true,
+    "toolCalls": [
+      {
+        "tool": "nmap",
+        "args": { "target": "scan-target.vendetta.lab", "scan_type": "-sT", "ports": "1-1024" },
+        "rationale": "Confirm which management ports are exposed on the targeted host before choosing a containment action."
+      }
+    ],
+    "gpuSeconds": 6.42
+  },
+  "chain_id": "llm-gateway-0",
+  "seq": 41,
+  "prev_hash": "0b7d5c1e3a424f6e9c5871d2e6a0b4f3d86ced9a9704252ec2ac58c31c9bb0ef",
+  "hash": "e4a1c7f0b92d58361f0a7c9e2b4d6081a3c5e7f90b2d4f6a8c0e1d3b5a79f2c4"
+}

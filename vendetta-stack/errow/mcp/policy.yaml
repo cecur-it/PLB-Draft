@@ -1,0 +1,206 @@
+# MCP tool-call policy — default-deny allow-lists enforced by BOTH the llm-gateway (stage 2 guardrail)
+# and the errow-mcp bridge (defense in depth). Byte-identical copy lives at errow/mcp/policy.yaml;
+# scripts/sync-mcp-policy.sh --check fails CI when they drift.
+# Traces: PROMPT §2.3 (Errow as MCP server), §2.5 (guardrails column), §1 Tier 4 (agentic SOAR).
+#
+# Evaluation order for every tool call:
+#   1. tool exists and the calling role (triage|forensic) is listed          -> else deny
+#   2. every arg is declared, typed and inside its enum/pattern/max          -> else deny
+#   3. no forbidden_args present                                             -> else deny
+#   4. target matches `denied` (CIDR / hostname / port) FIRST                -> deny wins over any allow
+#   5. target matches the global `targets` allow-list (and the tool's own `targets`, when present)
+#   6. rate limits (per tenant / per target / cluster) and concurrency       -> else 429 rate_limited
+#   7. execution: only when env MCP_LIVE == "true", otherwise status dry_run
+# Operators extend the allow-list WITHOUT editing this file via MCP_TARGETS_FILE
+# (yaml: {hostnames: [], cidrs: [], domains: [], repo_paths: []}); the extension can only ADD to `targets`,
+# never relax `denied`, `tools`, `forbidden_args` or `limits`.
+version: 1
+default_action: deny
+live_env: MCP_LIVE
+
+limits:
+  per_tenant_per_minute: 10
+  cluster_per_minute: 100
+  per_target_per_minute: 6
+  max_concurrent: 4
+
+denied:
+  cidrs:
+    - 169.254.0.0/16
+    - 127.0.0.0/8
+    - 0.0.0.0/8
+    - ::1/128
+    - fe80::/10
+    - 224.0.0.0/4
+    - 192.0.0.0/24
+  hostnames:
+    - metadata.google.internal
+    - metadata.goog
+    - "*.internal"
+    - localhost
+  ports: [1514, 1515, 1516, 55000, 9200, 9300, 9101, 9102, 9103, 11434, 24224, 24225]
+
+targets:
+  hostnames:
+    - scan-target.vendetta.lab
+  cidrs: []
+  domains:
+    - vendetta.lab
+  repo_paths:
+    - /workspace/repos/*
+
+tools:
+  # ---------------------------------------------------------------- triage (nemotron-3-nano:30b)
+  bbot:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: domain
+    timeout_s: 600
+    rate_per_target_per_minute: 1
+    args:
+      target: {type: string, required: true, pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$'}
+      preset: {type: string, required: true, enum: [subdomain-enum, safe]}
+      flags: {type: array, items: {type: string, enum: [passive]}, max: 1}
+    forbidden_args: [--allow-deadly, -ac, --active, --config, -c, --custom-yara-rules, --output-modules, --modules, -m]
+
+  nmap:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: host
+    timeout_s: 600
+    rate_per_target_per_minute: 2
+    args:
+      target: {type: string, required: true, pattern: '^[A-Za-z0-9]([A-Za-z0-9.:/-]{0,251}[A-Za-z0-9])?$'}
+      scan_type: {type: string, required: true, enum: ['-sn', '-sT', '-sV']}
+      ports: {type: string, enum: ['1-1024', '3389', '8080', '8443', '1-1024,3389,8080,8443']}
+      timing: {type: string, enum: ['-T2', '-T3']}
+    forbidden_args: [--script, --script-args, -sC, -A, -O, -sU, -sS, -iL, -oN, -oX, -oG, --datadir, --resume, --privileged]
+
+  nuclei:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: url
+    timeout_s: 900
+    rate_per_target_per_minute: 1
+    args:
+      target: {type: string, required: true, pattern: '^(https?://)?[A-Za-z0-9]([A-Za-z0-9.:/_-]{0,251}[A-Za-z0-9/])?$'}
+      tags: {type: array, required: true, items: {type: string, enum: [cves, exposures, misconfiguration, technologies]}, max: 4}
+      severity: {type: array, items: {type: string, enum: [info, low, medium, high, critical]}, max: 5}
+      rate_limit: {type: integer, max: 50}
+    forbidden_args: [-t, -templates, -w, -workflows, -etags, -itags, -tags-dos, --code, -code, -headless, -dast, -fuzz, -iserver, -interactsh-server, -config, -tc]
+    forbidden_tag_values: [dos, fuzz, intrusive, rce-exploit]
+
+  gobuster:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: url
+    timeout_s: 600
+    rate_per_target_per_minute: 1
+    args:
+      target: {type: string, required: true, pattern: '^https?://[A-Za-z0-9]([A-Za-z0-9.:/_-]{0,251}[A-Za-z0-9/])?$'}
+      mode: {type: string, required: true, enum: [dir]}
+      wordlist: {type: string, required: true, enum: [/usr/share/wordlists/dirb/common.txt, /usr/share/seclists/Discovery/Web-Content/common.txt]}
+      threads: {type: integer, max: 10}
+    forbidden_args: [--wordlist-offset, -o, --output, --proxy, --retry, -c, --cookies, -H, --headers, -U, -P, --username, --password]
+
+  subfinder:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: domain
+    timeout_s: 300
+    rate_per_target_per_minute: 1
+    args:
+      target: {type: string, required: true, pattern: '^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$'}
+      passive: {type: boolean, enum: [true]}
+    forbidden_args: [-all, -recursive, -active, -config, -pc, -provider-config, -o, -oD]
+
+  wafw00f:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: url
+    timeout_s: 120
+    rate_per_target_per_minute: 2
+    args:
+      target: {type: string, required: true, pattern: '^https?://[A-Za-z0-9]([A-Za-z0-9.:/_-]{0,251}[A-Za-z0-9/])?$'}
+      passive: {type: boolean, required: true, enum: [true]}
+    forbidden_args: [-a, --findall, -p, --proxy, -H, --headers, -i, --input]
+
+  trufflehog:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: repo_path
+    timeout_s: 600
+    rate_per_target_per_minute: 1
+    args:
+      repo_path: {type: string, required: true, pattern: '^/workspace/repos/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$'}
+      mode: {type: string, enum: [filesystem, git]}
+      no_verification: {type: boolean, enum: [true]}
+    forbidden_args: [--only-verified, --results=verified, --config, --archive-max-depth, --include-detectors, --exclude-detectors]
+
+  shell:
+    roles: [triage]
+    sandbox: errow-sandbox
+    target_kind: host
+    timeout_s: 30
+    rate_per_target_per_minute: 6
+    args:
+      command: {type: string, required: true, enum: ['curl -sI', dig, nslookup, 'ping -c 3']}
+      target: {type: string, required: true, pattern: '^[A-Za-z0-9]([A-Za-z0-9.:/_-]{0,251}[A-Za-z0-9/])?$'}
+    forbidden_args: ['|', ';', '&&', '||', '`', '$(', '>', '<', -o, --output, -X, -d, --data, -T, --upload-file, -K, --config]
+
+  # ---------------------------------------------------------------- forensic (gemma4:26b / gemma4:31b)
+  agent_browser:
+    roles: [forensic]
+    sandbox: errow-sandbox
+    target_kind: url
+    timeout_s: 120
+    rate_per_target_per_minute: 4
+    args:
+      url: {type: string, required: true, pattern: '^https://[A-Za-z0-9]([A-Za-z0-9.:/_?=&%-]{0,500})$'}
+      screenshot: {type: boolean}
+      screenshot_retention_days: {type: integer, max: 30}
+    forbidden_args: [javascript, eval, cookies, storage_state, extra_headers, download]
+    screenshot_retention_days_default: 7
+
+  proxy:
+    roles: [forensic]
+    sandbox: errow-sandbox
+    target_kind: host
+    timeout_s: 60
+    rate_per_target_per_minute: 6
+    args:
+      target: {type: string, required: true, pattern: '^[A-Za-z0-9]([A-Za-z0-9.:/_-]{0,251}[A-Za-z0-9/])?$'}
+      action: {type: string, required: true, enum: [list_requests, view_request, scope_status]}
+      limit: {type: integer, max: 100}
+    forbidden_args: [replay, intercept, tls_intercept_all, modify_request, drop_request]
+
+  web_search:
+    roles: [forensic]
+    sandbox: errow-runtime
+    target_kind: none
+    timeout_s: 30
+    rate_per_minute: 5
+    args:
+      query: {type: string, required: true, max: 200}
+      max_results: {type: integer, max: 10}
+    forbidden_args: [site_override, fetch_pages]
+
+  threat_model:
+    roles: [forensic]
+    sandbox: read-only
+    target_kind: none
+    timeout_s: 15
+    args:
+      run: {type: string, required: true, pattern: '^[A-Za-z0-9._-]{1,128}$'}
+      format: {type: string, enum: [summary, full]}
+    forbidden_args: [write, update, delete]
+
+  coverage:
+    roles: [forensic]
+    sandbox: read-only
+    target_kind: none
+    timeout_s: 15
+    args:
+      run: {type: string, required: true, pattern: '^[A-Za-z0-9._-]{1,128}$'}
+      format: {type: string, enum: [summary, full]}
+    forbidden_args: [write, update, delete]

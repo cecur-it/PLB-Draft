@@ -1,0 +1,109 @@
+# Traces: CONTRACT section 2 (errow-mcp 9103 mTLS), errow/mcp/RUNTIME.md, errow/mcp/k8s.yaml (C1 reference shape).
+{{- if .Values.errow.enabled }}
+{{- $e := .Values.errow }}
+{{- $sb := $e.sandboxEnabled }}
+{{- $env := dict
+  "MCP_LIVE" .Values.config.mcpLive
+  "errow_IMAGE" (include "vs.image" (dict "root" . "img" .Values.images.errowSandbox))
+  "MCP_ALLOWED_CLIENTS" .Values.config.mcpAllowedClients
+  "MCP_SANDBOX_NETWORK" "offensive"
+  "MCP_TARGETS_FILE" .Values.config.mcpTargetsFile
+  "MCP_PORT" "9103"
+  "MCP_PKI_DIR" "/pki"
+  "MCP_EVENTS_FILE" "/var/log/errow/mcp_events.ndjson" }}
+{{- if $sb }}
+{{- $_ := set $env "DOCKER_HOST" "tcp://errow-dind:2376" }}
+{{- $_ := set $env "DOCKER_TLS_VERIFY" "1" }}
+{{- $_ := set $env "DOCKER_CERT_PATH" "/certs/client" }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-mcp
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-mcp") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "errow-mcp") | indent 4 }}
+  ports:
+    - {name: https, port: 9103, targetPort: https}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-mcp
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-mcp") | indent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-mcp") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-mcp") | indent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" (dict) "component" "errow-mcp" "co" true) | indent 6 }}
+      containers:
+        - name: mcp
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.errowMcp) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.env" $env | indent 12 }}
+          ports:
+            - {name: https, containerPort: 9103}
+          startupProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $e.mcp.resources | indent 12 }}
+          volumeMounts:
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: mcp, mountPath: /etc/vendetta/mcp, readOnly: true}
+            - {name: ndjson, mountPath: /var/log/errow}
+            - {name: runs, mountPath: /workspace/errow_runs, readOnly: true}
+            {{- if $sb }}
+            - {name: dind-client, mountPath: /certs/client, readOnly: true}
+            {{- end }}
+      volumes:
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "errow-mcp"))) | indent 8 }}
+        - name: mcp
+          configMap:
+            name: mcp-config
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "errow/config") | indent 14 }}
+        - name: ndjson
+          persistentVolumeClaim:
+            claimName: errow-ndjson
+        - name: runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+            readOnly: true
+        {{- if $sb }}
+{{ include "vs.pkiVolume" (dict "root" . "volume" "dind-client" "caPath" "ca.pem" "certs" (list (dict "svc" "errow-dind-client" "crt" "cert.pem" "key" "key.pem"))) | indent 8 }}
+        {{- end }}
+{{- end }}

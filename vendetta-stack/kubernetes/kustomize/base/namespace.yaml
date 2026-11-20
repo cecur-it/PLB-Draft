@@ -1,0 +1,11 @@
+# Traces: PROMPT section 1 Tier 3; CONTRACT section 2 (errow-dind is privileged, the Wazuh manager runs as root),
+# so the namespace cannot enforce the restricted Pod Security level; every other pod sets the restricted-grade securityContext itself.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vendetta-stack
+  labels:
+    app.kubernetes.io/part-of: vendetta-stack
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline

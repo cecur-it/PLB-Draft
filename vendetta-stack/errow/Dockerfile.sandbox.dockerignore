@@ -1,0 +1,2 @@
+# Dockerfile.sandbox needs no build context files (everything is downloaded or inherited from the base image).
+*

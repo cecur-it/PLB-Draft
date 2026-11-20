@@ -1,0 +1,12 @@
+{
+  "persistent": {
+    "action.auto_create_index": "+vendetta-alerts-*,+errow-*,+cfgaudit-*,+cs3-ai-*,+security-auditlog-*,+.*,-*",
+    "action.destructive_requires_name": true,
+    "cluster.max_shards_per_node": 3000,
+    "cluster.routing.allocation.node_concurrent_recoveries": 4,
+    "cluster.routing.allocation.cluster_concurrent_rebalance": 2,
+    "indices.recovery.max_bytes_per_sec": "100mb",
+    "plugins.index_state_management.job_interval": 5,
+    "plugins.index_state_management.history.enabled": true
+  }
+}

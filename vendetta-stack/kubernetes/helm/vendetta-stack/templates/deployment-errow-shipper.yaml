@@ -1,0 +1,86 @@
+# Traces: CONTRACT section 2 (errow-shipper, errow-ndjson, errow-shipper-state), errow/shipper/RUNTIME.md.
+{{- if .Values.errow.enabled }}
+{{- $e := .Values.errow }}
+{{- $sb := $e.sandboxEnabled }}
+{{- $env := dict
+  "SHIPPER_INTERVAL" $e.shipper.interval
+  "ERROW_RUNS_DIR" "/workspace/errow_runs"
+  "errow_TELEMETRY" .Values.config.errowTelemetry }}
+{{- if $sb }}
+{{- $_ := set $env "DOCKER_HOST" "tcp://errow-dind:2376" }}
+{{- $_ := set $env "DOCKER_TLS_VERIFY" "1" }}
+{{- $_ := set $env "DOCKER_CERT_PATH" "/certs/client" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-shipper
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-shipper") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-shipper") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-shipper") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" (dict) "component" "errow-shipper" "co" true) | indent 6 }}
+      containers:
+        - name: shipper
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.errowShipper) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.env" $env | indent 12 }}
+          startupProbe:
+            exec:
+              command: ["python", "/app/shipper.py", "--healthcheck"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command: ["python", "/app/shipper.py", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["python", "/app/shipper.py", "--healthcheck"]
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $e.shipper.resources | indent 12 }}
+          volumeMounts:
+            - {name: runs, mountPath: /workspace/errow_runs, readOnly: true}
+            - {name: ndjson, mountPath: /var/log/errow}
+            - {name: state, mountPath: /var/lib/errow-shipper}
+            {{- if $sb }}
+            - {name: dind-client, mountPath: /certs/client, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+            readOnly: true
+        - name: ndjson
+          persistentVolumeClaim:
+            claimName: errow-ndjson
+        - name: state
+          persistentVolumeClaim:
+            claimName: errow-shipper-state
+        {{- if $sb }}
+{{ include "vs.pkiVolume" (dict "root" . "volume" "dind-client" "caPath" "ca.pem" "certs" (list (dict "svc" "errow-dind-client" "crt" "cert.pem" "key" "key.pem"))) | indent 8 }}
+        {{- end }}
+{{- end }}

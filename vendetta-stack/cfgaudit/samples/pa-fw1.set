@@ -1,0 +1,33 @@
+set deviceconfig system hostname pa-fw1
+set deviceconfig system snmp-setting snmp-system snmp-community-string public
+set network profiles interface-management-profile MGMT telnet yes
+set network profiles interface-management-profile MGMT ssh yes
+set rulebase security rules allow-all from any
+set rulebase security rules allow-all to any
+set rulebase security rules allow-all source any
+set rulebase security rules allow-all destination any
+set rulebase security rules allow-all application any
+set rulebase security rules allow-all action allow
+set rulebase security rules web-out from trust
+set rulebase security rules web-out to untrust
+set rulebase security rules web-out source [ lan-net ]
+set rulebase security rules web-out destination any
+set rulebase security rules web-out application [ ssl web-browsing ]
+set rulebase security rules web-out action allow
+set rulebase security rules web-out log-end yes
+set rulebase security rules web-out profile-setting group default
+set rulebase security rules block-lan from trust
+set rulebase security rules block-lan to untrust
+set rulebase security rules block-lan source lan-net
+set rulebase security rules block-lan destination any
+set rulebase security rules block-lan application any
+set rulebase security rules block-lan service any
+set rulebase security rules block-lan action deny
+set rulebase security rules ssh-out from trust
+set rulebase security rules ssh-out to untrust
+set rulebase security rules ssh-out source lan-net
+set rulebase security rules ssh-out destination any
+set rulebase security rules ssh-out application ssh
+set rulebase security rules ssh-out service any
+set rulebase security rules ssh-out action allow
+set address lan-net ip-netmask 10.10.0.0/16

@@ -1,0 +1,56 @@
+{
+  "index_patterns": ["errow-threat-models-*"],
+  "priority": 200,
+  "version": 1,
+  "_meta": {
+    "description": "Errow threat models: one record per entry of .state/threat_models.json (target, markdown content, written_at/by, amendments[]).",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "10s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 1000,
+      "index.mapping.ignore_malformed": true
+    },
+    "mappings": {
+      "dynamic": true,
+      "date_detection": false,
+      "numeric_detection": false,
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": { "type": "keyword", "ignore_above": 1024 }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "stream": { "type": "keyword" },
+        "run": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "doc_id": { "type": "keyword" },
+        "target": { "type": "keyword", "ignore_above": 1024 },
+        "written_at": { "type": "date" },
+        "written_by": { "type": "keyword" },
+        "content": { "type": "text" },
+        "amendments": {
+          "type": "nested",
+          "properties": {
+            "at": { "type": "date" },
+            "by": { "type": "keyword" },
+            "content": { "type": "text" }
+          }
+        },
+        "ingest_error": {
+          "type": "text",
+          "fields": { "keyword": { "type": "keyword", "ignore_above": 512 } }
+        }
+      }
+    }
+  }
+}

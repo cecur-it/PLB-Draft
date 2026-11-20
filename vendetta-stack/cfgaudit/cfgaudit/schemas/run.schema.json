@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cecur-it.io/schemas/cfgaudit/run-1.0.json",
+  "title": "Cfgaudit run summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_type", "@timestamp", "doc_id", "source", "tool", "run", "status", "summary", "assets", "warnings"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "record_type": {"const": "run"},
+    "@timestamp": {"type": "string", "format": "date-time"},
+    "doc_id": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "stream"],
+      "properties": {
+        "system": {"const": "cfgaudit"},
+        "stream": {"const": "cfgaudit.runs"}
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"const": "cfgaudit"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "started_at", "completed_at", "status", "min_severity", "shadow_mode"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": {"type": "string", "format": "date-time"},
+        "status": {"$ref": "#/$defs/runStatus"},
+        "min_severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+        "shadow_mode": {"enum": ["native", "off"]}
+      }
+    },
+    "status": {"$ref": "#/$defs/runStatus"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_total", "files_audited", "files_skipped", "assets_audited", "findings_total", "severity"],
+      "properties": {
+        "files_total": {"$ref": "#/$defs/count"},
+        "files_audited": {"$ref": "#/$defs/count"},
+        "files_skipped": {"$ref": "#/$defs/count"},
+        "assets_audited": {"$ref": "#/$defs/count"},
+        "findings_total": {"$ref": "#/$defs/count"},
+        "severity": {"$ref": "#/$defs/severities"}
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "vendor", "config_sha256", "status", "findings_total", "severity"],
+        "properties": {
+          "id": {"$ref": "#/$defs/hash"},
+          "name": {"type": "string", "minLength": 1},
+          "vendor": {"enum": ["ios", "nxos", "asa", "paloalto", "fortinet"]},
+          "config_sha256": {"$ref": "#/$defs/hash"},
+          "status": {"enum": ["pass", "fail"]},
+          "findings_total": {"$ref": "#/$defs/count"},
+          "severity": {"$ref": "#/$defs/severities"}
+        }
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "runStatus": {"enum": ["completed", "completed_with_warnings", "failed"]},
+    "severities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "high", "medium", "low", "info"],
+      "properties": {
+        "critical": {"$ref": "#/$defs/count"},
+        "high": {"$ref": "#/$defs/count"},
+        "medium": {"$ref": "#/$defs/count"},
+        "low": {"$ref": "#/$defs/count"},
+        "info": {"$ref": "#/$defs/count"}
+      }
+    }
+  }
+}

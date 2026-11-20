@@ -1,0 +1,61 @@
+# Traces: CONTRACT section 2 (config files shipped read-only), section 11 (RUNTIME.md mounts).
+# Config trees are copied from the stack directories into files/ by sync-files.sh (Helm cannot read outside the chart).
+{{- include "vs.validate" . }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vendetta-stack
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "platform") | indent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vendetta-stack-profile
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "platform") | indent 4 }}
+data:
+  CS3_PROFILE: {{ .Values.global.profile | quote }}
+---
+{{ include "vs.tree" (dict "root" . "name" "fluent-bit-config" "dir" "fluent-bit" "component" "fluent-bit") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "opensearch-config" "dir" "opensearch" "component" "opensearch") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "prometheus-config" "dir" "prometheus" "component" "prometheus") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "grafana-provisioning" "dir" "grafana/provisioning" "component" "grafana") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "grafana-dashboards" "dir" "grafana/dashboards" "component" "grafana") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "ollama-lb-config" "dir" "ollama/ollama-lb" "component" "llm-gateway") }}
+---
+{{ include "vs.tree" (dict "root" . "name" "mcp-config" "dir" "errow/config" "component" "errow-mcp") }}
+---
+{{- if eq .Values.ollama.mode "mock" }}
+{{ include "vs.tree" (dict "root" . "name" "ollama-mock-config" "dir" "ollama/mock" "component" "ollama") }}
+---
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-gateway-models
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "llm-gateway") | indent 4 }}
+data:
+  models.json: {{ .Files.Get "files/ollama/models.json" | toJson }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feedback-approvals
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback") | indent 4 }}
+data:
+  APPROVALS.md: {{ .Files.Get "files/errow/feedback-loop/APPROVALS.md" | toJson }}
+---
+{{ include "vs.tree" (dict "root" . "name" "vendetta-manager-integration" "dir" "vendetta/manager" "component" "vendetta-manager") }}

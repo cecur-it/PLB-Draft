@@ -1,0 +1,20 @@
+[
+  {"device":"CONNX-PLB-LPWAN","message":"CONNX-PLB-LPWAN","agentName":"CONNX-PLB-LPWAN","sourceIp":"10.10.2.16"},
+  {"device":"CONNX-PLB-CCWAN","message":"CONNX-PLB-CCWAN","agentName":"CONNX-PLB-CCWAN","sourceIp":"10.10.2.17"},
+  {"device":"CONNX-PLB-CSW1","message":"CONNX-PLB-CSW1","agentName":"CONNX-PLB-CSW1","sourceIp":"10.10.2.2"},
+  {"device":"CONNX-PLB-CSW2","message":"CONNX-PLB-CSW2","agentName":"CONNX-PLB-CSW2","sourceIp":"10.10.2.3"},
+  {"device":"CONNX-PLB-ASW1","message":"ASW1","agentName":"CONNX-PLB-ASW1","sourceIp":"10.10.2.4"},
+  {"device":"CONNX-PLB-ASW2","message":"ASW2","agentName":"CONNX-PLB-ASW2","sourceIp":"10.10.2.5"},
+  {"device":"CONNX-PLB-ASW3","message":"ASW3","agentName":"CONNX-PLB-ASW3","sourceIp":"10.10.2.6"},
+  {"device":"CONNX-PLB-ASW4","message":"ASW4","agentName":"CONNX-PLB-ASW4","sourceIp":"10.10.2.7"},
+  {"device":"ASM-PLB-EFW1","message":"ASM-PLB-EFW1","agentName":"ASM-PLB-EFW1","sourceIp":"10.10.1.253"},
+  {"device":"ASM-PLB-EFW2","message":"ASM-PLB-EFW2","agentName":"ASM-PLB-EFW2","sourceIp":"10.10.1.253"},
+  {"device":"CONNX-PLB-AP1","message":"AP1","agentName":"CONNX-PLB-AP1","sourceIp":"10.10.2.8"},
+  {"device":"CONNX-PLB-AP2","message":"AP2","agentName":"CONNX-PLB-AP2","sourceIp":"10.10.2.9"},
+  {"device":"CONNX-PLB-AP3","message":"AP3","agentName":"CONNX-PLB-AP3","sourceIp":"10.10.2.10"},
+  {"device":"CONNX-PLB-AP4","message":"AP4","agentName":"CONNX-PLB-AP4","sourceIp":"10.10.2.11"},
+  {"device":"CONNX-PLB-AP5","message":"AP5","agentName":"CONNX-PLB-AP5","sourceIp":"10.10.2.12"},
+  {"device":"CONNX-PLB-AP6","message":"AP6","agentName":"CONNX-PLB-AP6","sourceIp":"10.10.2.13"},
+  {"device":"CONNX-PLB-AP7","message":"AP7","agentName":"CONNX-PLB-AP7","sourceIp":"10.10.2.14"},
+  {"device":"CONNX-PLB-AP8","message":"AP8","agentName":"CONNX-PLB-AP8","sourceIp":"10.10.2.15"}
+]

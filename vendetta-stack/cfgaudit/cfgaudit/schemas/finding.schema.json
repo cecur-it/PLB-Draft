@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cecur-it.io/schemas/cfgaudit/finding-1.0.json",
+  "title": "Cfgaudit finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_type", "@timestamp", "doc_id", "source", "run", "asset", "config", "control", "finding", "status", "severity", "evidence", "remediation"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "record_type": {"const": "finding"},
+    "@timestamp": {"type": "string", "format": "date-time"},
+    "doc_id": {"$ref": "#/$defs/hash"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "stream"],
+      "properties": {
+        "system": {"const": "cfgaudit"},
+        "stream": {"const": "cfgaudit.findings"}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {"id": {"type": "string", "minLength": 1}}
+    },
+    "asset": {"$ref": "#/$defs/asset"},
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "frameworks"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "reference", "mapping"],
+            "properties": {
+              "name": {"enum": ["NIST SP 800-53", "DISA STIG", "CIS"]},
+              "reference": {"type": "string", "minLength": 1},
+              "mapping": {"enum": ["direct", "related", "indicative"]}
+            }
+          }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "key"],
+      "properties": {
+        "id": {"$ref": "#/$defs/hash"},
+        "key": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "status": {"const": "fail"},
+    "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "items"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/hash"},
+        "items": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "remediation": {"type": "string"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "vendor"],
+      "properties": {
+        "id": {"$ref": "#/$defs/hash"},
+        "name": {"type": "string", "minLength": 1},
+        "vendor": {"enum": ["ios", "nxos", "asa", "paloalto", "fortinet"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,188 @@
+# Traces: CONTRACT section 2 (ollama-workers :11443 mTLS, worker pod = ollama + proxy in one netns, GPU), ollama/RUNTIME.md sections 1-2, 4 (K8s).
+{{- $o := .Values.ollama }}
+{{- if ne $o.mode "none" }}
+{{- $mock := eq $o.mode "mock" }}
+{{- $res := deepCopy $o.resources }}
+{{- if eq $o.mode "gpu" }}
+{{- $_ := set $res.limits $o.gpu.resourceName (int $o.gpu.count) }}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-workers
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "ollama") | indent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: false
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "ollama") | indent 4 }}
+  ports:
+    - {name: mtls, port: 11443, targetPort: mtls}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "ollama") | indent 4 }}
+spec:
+  serviceName: ollama-workers
+  replicas: {{ $o.replicas }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "ollama") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "ollama") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      {{- if and (eq $o.mode "gpu") $o.gpu.runtimeClassName }}
+      runtimeClassName: {{ $o.gpu.runtimeClassName }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" (ternary 65534 10001 $mock)) | indent 8 }}
+{{ include "vs.scheduling" (dict "root" . "cfg" (ternary (dict) $o $mock) "component" "ollama" "spread" true) | indent 6 }}
+      initContainers:
+{{ include "vs.pemInit" (dict "root" . "svc" "ollama-1" "src" "pki-src" "dst" "pki-proxy") | indent 8 }}
+      containers:
+        {{- if $mock }}
+        - name: ollama
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.python) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["python", "/app/mock_ollama.py"]
+          env:
+{{ include "vs.env" (dict "MOCK_BIND" "127.0.0.1:11434" "MOCK_DOWN_MODELS" $o.mock.downModels "MOCK_LATENCY_MS" $o.mock.latencyMs "MOCK_TOOL_TARGET" $o.mock.toolTarget) | indent 12 }}
+          startupProbe:
+            exec:
+              command: ["python", "/app/mock_ollama.py", "--healthcheck"]
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            exec:
+              command: ["python", "/app/mock_ollama.py", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["python", "/app/mock_ollama.py", "--healthcheck"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 128Mi}
+          volumeMounts:
+            - {name: mock, mountPath: /app, readOnly: true}
+        {{- else }}
+        - name: ollama
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.ollama) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.profileEnv" . | indent 12 }}
+{{ include "vs.env" (dict
+  "OLLAMA_HOST" "127.0.0.1:11434"
+  "OLLAMA_PRIMARY_MODEL" .Values.config.primaryModel
+  "OLLAMA_FALLBACK_MODEL" .Values.config.fallbackModel
+  "OLLAMA_SECURITY_MODEL" .Values.config.securityModel
+  "INFERENCE_MODEL_REASONING_DEEP" .Values.config.reasoningDeepModel
+  "OLLAMA_PRELOAD_MODELS" $o.preloadModels
+  "OLLAMA_PRELOAD_STRICT" $o.preloadStrict
+  "OLLAMA_READY_TIMEOUT" $o.readyTimeoutSeconds
+  "OLLAMA_AIRGAP_BUNDLE_DIR" "/bundle"
+  "OLLAMA_NUM_PARALLEL" $o.numParallel
+  "OLLAMA_MAX_LOADED_MODELS" $o.maxLoadedModels
+  "OLLAMA_KEEP_ALIVE" $o.keepAlive) | indent 12 }}
+          startupProbe:
+            exec:
+              command: ["/usr/local/bin/entrypoint.sh", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: {{ div (int $o.startupTimeoutSeconds) 10 }}
+          readinessProbe:
+            exec:
+              command: ["/usr/local/bin/entrypoint.sh", "--healthcheck"]
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["ollama", "list"]
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $res | indent 12 }}
+          volumeMounts:
+            - {name: models, mountPath: /var/lib/cs3-ollama}
+            - {name: tmp, mountPath: /tmp}
+            {{- if $o.bundle.existingClaim }}
+            - {name: bundle, mountPath: /bundle, readOnly: true}
+            {{- end }}
+        {{- end }}
+        - name: ollama-proxy
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.haproxy) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - {name: mtls, containerPort: 11443}
+          readinessProbe:
+            exec:
+              command: {{ include "vs.wgetCmd" "http://127.0.0.1:8405/healthz" }}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: {{ include "vs.wgetCmd" "http://127.0.0.1:8405/healthz" }}
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          securityContext:
+            runAsUser: 99
+            runAsGroup: 99
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $o.proxy.resources | indent 12 }}
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /usr/local/etc/haproxy/haproxy.cfg
+              subPath: worker-proxy.cfg
+              readOnly: true
+            - {name: pki-proxy, mountPath: /pki}
+      volumes:
+        - name: proxy-config
+          configMap:
+            name: ollama-lb-config
+            items:
+              - {key: worker-proxy.cfg, path: worker-proxy.cfg}
+        - name: pki-proxy
+          emptyDir:
+            medium: Memory
+{{ include "vs.pkiVolume" (dict "root" . "volume" "pki-src" "certs" (list (dict "svc" "ollama-1"))) | indent 8 }}
+        {{- if $mock }}
+        - name: mock
+          configMap:
+            name: ollama-mock-config
+        {{- else }}
+        - name: tmp
+          emptyDir: {}
+        {{- if $o.bundle.existingClaim }}
+        - name: bundle
+          persistentVolumeClaim:
+            claimName: {{ $o.bundle.existingClaim }}
+            readOnly: true
+        {{- end }}
+        {{- end }}
+  {{- if not $mock }}
+  volumeClaimTemplates:
+{{ include "vs.vct" (dict "root" . "name" "models" "component" "ollama" "size" $o.persistence.size "class" $o.persistence.storageClass) | indent 4 }}
+  {{- end }}
+{{- end }}

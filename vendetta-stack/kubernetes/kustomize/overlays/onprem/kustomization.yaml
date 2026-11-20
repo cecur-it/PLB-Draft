@@ -1,0 +1,40 @@
+# Traces: PROMPT section 1 Tier 3 (on-prem cluster); CONTRACT section 4.4 (FailClosed profile onprem), section 1 (pinned digests).
+# Edit the StorageClass names (ceph-block = block, cephfs = RWX) and the registry host to your cluster before applying.
+# cert-manager, ServiceMonitor, ExternalSecret and HPA resources are Helm toggles (values-onprem.yaml); this overlay patches the plain render.
+#   kustomize build kubernetes/kustomize/overlays/onprem | kubectl apply -f -
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vendetta-stack
+resources:
+  - ../../base
+  - ingress.yaml
+images:
+  - {name: vendetta-stack/fluentd, newName: registry.vendetta.lab/vendetta-stack/fluentd}
+  - {name: vendetta-stack/llm-gateway, newName: registry.vendetta.lab/vendetta-stack/llm-gateway}
+  - {name: vendetta-stack/ollama, newName: registry.vendetta.lab/vendetta-stack/ollama}
+  - {name: vendetta-stack/errow, newName: registry.vendetta.lab/vendetta-stack/errow}
+  - {name: vendetta-stack/errow-mcp, newName: registry.vendetta.lab/vendetta-stack/errow-mcp}
+  - {name: vendetta-stack/errow-shipper, newName: registry.vendetta.lab/vendetta-stack/errow-shipper}
+  - {name: vendetta-stack/errow-feedback, newName: registry.vendetta.lab/vendetta-stack/errow-feedback}
+patches:
+  - path: ollama-gpu-pool.yaml
+  - path: opensearch-sizing.yaml
+  - path: sandbox-image.yaml
+  - target: {kind: ConfigMap, name: vendetta-stack-profile}
+    patch: |-
+      - {op: replace, path: /data/CS3_PROFILE, value: onprem}
+  - target: {kind: StatefulSet}
+    patch: |-
+      - {op: add, path: /spec/volumeClaimTemplates/0/spec/storageClassName, value: ceph-block}
+  - target: {kind: StatefulSet, name: opensearch}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 200Gi}
+  - target: {kind: PersistentVolumeClaim, name: "(errow-runs|errow-ndjson|errow-shipper-state|feedback-loop|opensearch-snapshots)"}
+    patch: |-
+      - {op: add, path: /spec/storageClassName, value: cephfs}
+  - target: {kind: PersistentVolumeClaim, name: errow-dind-data}
+    patch: |-
+      - {op: add, path: /spec/storageClassName, value: ceph-block}
+  - target: {kind: PersistentVolumeClaim, name: opensearch-snapshots}
+    patch: |-
+      - {op: replace, path: /spec/resources/requests/storage, value: 200Gi}

@@ -1,0 +1,19 @@
+{
+  "@timestamp": "2026-11-12T09:40:00.000Z",
+  "event_type": "inference",
+  "request_id": "0f4b8d2a-6c31-4e97-b5a0-3d8e1c7f9246",
+  "alert_id": "1794475999.7700123",
+  "role": "triage",
+  "engine_used": "nemotron-3-nano:30b",
+  "fallback": false,
+  "analysis": {
+    "triageSummary": "Model output with a severity outside the schema enum.",
+    "severityAssessment": "SEVERE",
+    "mitreTactic": "Execution",
+    "mitreTechnique": "T1059 Command and Scripting Interpreter",
+    "probableRootCause": "n/a",
+    "recommendedImmediateAction": "n/a",
+    "confidenceScore": 10,
+    "engineUsed": "nemotron-3-nano:30b"
+  }
+}

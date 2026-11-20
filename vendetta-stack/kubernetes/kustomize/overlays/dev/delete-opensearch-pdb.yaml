@@ -1,0 +1,6 @@
+# Traces: PROMPT section 1 Tier 3 (dev cluster). A PodDisruptionBudget over a single replica would block every node drain.
+$patch: delete
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opensearch

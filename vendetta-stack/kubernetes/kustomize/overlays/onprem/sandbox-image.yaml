@@ -1,0 +1,25 @@
+# Traces: PROMPT section 1 Tier 3; errow/RUNTIME.md (ERROW_SANDBOX_IMAGE / errow_IMAGE name the Kali sandbox started inside errow-dind).
+# The images: transformer does not rewrite environment values, so the sandbox reference is patched here to the private registry.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow
+spec:
+  template:
+    spec:
+      containers:
+        - name: errow
+          env:
+            - {name: ERROW_SANDBOX_IMAGE, value: "registry.vendetta.lab/vendetta-stack/errow-sandbox:1.0.0"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-mcp
+spec:
+  template:
+    spec:
+      containers:
+        - name: mcp
+          env:
+            - {name: errow_IMAGE, value: "registry.vendetta.lab/vendetta-stack/errow-sandbox:1.0.0"}

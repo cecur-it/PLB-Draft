@@ -1,0 +1,10 @@
+apiVersion: v2
+name: vendetta-stack
+description: Vendetta stack - Fluent Bit edge, Fluentd aggregators, OpenSearch, Prometheus/Grafana, LLM gateway with GPU Ollama workers, and the Errow scan tier
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.27.0-0"
+keywords: [siem, opensearch, fluentd, fluent-bit, ollama, wazuh, errow]
+annotations:
+  vendetta-stack/traces: "PROMPT section 1 Tier 3; CONTRACT sections 1, 2, 8, 11"

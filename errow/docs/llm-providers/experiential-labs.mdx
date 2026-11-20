@@ -1,0 +1,34 @@
+---
+title: "Experiential Labs"
+description: "Configure errow with Experiential Labs models"
+---
+
+[Experiential Labs](https://platform.experientiallabs.ai) serves models through an OpenAI-compatible API.
+
+## Setup
+
+```bash
+export errow_LLM="openai/deepseek-v4.1-flash-uncensored"
+export EXPLABS_API_KEY="<your-experiential-labs-key>"
+```
+
+For this model errow defaults the API base to `https://api.experientiallabs.ai/v1` and reads the key from `EXPLABS_API_KEY`. Override either with `EXPLABS_BASE_URL`, or set `LLM_API_KEY` / `LLM_API_BASE` explicitly (these take precedence):
+
+```bash
+export LLM_API_KEY="$EXPLABS_API_KEY"
+export LLM_API_BASE="https://api.experientiallabs.ai/v1"
+```
+
+Keep `EXPLABS_API_KEY` in your shell profile or CI secret store. Never commit it to the repository.
+
+## Available Models
+
+| Model | Configuration |
+|-------|---------------|
+| DeepSeek V4.1 Flash Uncensored | `openai/deepseek-v4.1-flash-uncensored` |
+
+Model details: [platform.experientiallabs.ai/models/deepseek-v4.1-flash-uncensored](https://platform.experientiallabs.ai/models/deepseek-v4.1-flash-uncensored)
+
+## Get API Key
+
+Create a key in the [Experiential Labs platform](https://platform.experientiallabs.ai) dashboard.

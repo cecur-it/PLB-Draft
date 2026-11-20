@@ -1,0 +1,16 @@
+[errow-entrypoint] waiting for the Docker daemon at unix:///var/run/docker.sock (timeout 120s)
+[errow-entrypoint] sandbox image present: vendetta-stack/errow-sandbox:1.0.0
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  LLM CONNECTION FAILED                                                       │
+│                                                                              │
+│  Could not establish connection to the language model.                       │
+│  Please check your configuration and try again.                              │
+│                                                                              │
+│  Error: Error code: 404 - {'error': {'message': "model 'qwensploit-v2:9b'    │
+│  not found", 'type': 'not_found_error', 'param': None, 'code': None}}        │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

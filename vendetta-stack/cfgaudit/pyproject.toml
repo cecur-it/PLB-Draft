@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cfgaudit"
+version = "0.1.0"
+description = "Offline network-device configuration auditor and Vendetta NDJSON adapter"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name = "CECUR-IT"}]
+dependencies = []
+
+[project.optional-dependencies]
+batfish = ["pybatfish"]
+test = ["pytest>=7", "jsonschema>=4"]
+
+[project.scripts]
+cfgaudit = "cfgaudit.engine:main"
+cfgaudit-adapter = "cfgaudit.adapter:main"
+cfgaudit-gui = "cfgaudit.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["cfgaudit*"]
+
+[tool.setuptools.package-data]
+cfgaudit = ["schemas/*.json"]

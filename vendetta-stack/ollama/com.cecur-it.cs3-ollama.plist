@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.cecur-it.cs3-ollama.plist — hardened, loopback-only Ollama LaunchDaemon (macOS).
+  Traces: PROMPT §1 Tier 4 (Ollama 0.40.5 on 127.0.0.1:11434); mirrors cs3-ollama.service.
+  ollama/install-ollama.sh installs it to /Library/LaunchDaemons/ (tunable env values only are
+  rewritten), runs it as the dscl-created _cs3-ollama account and rotates its log files through
+  /etc/newsyslog.d/cs3-ollama.conf.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.cecur-it.cs3-ollama</string>
+  <key>UserName</key>
+  <string>_cs3-ollama</string>
+  <key>GroupName</key>
+  <string>_cs3-ollama</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/var/lib/cs3-ollama</string>
+    <key>OLLAMA_HOST</key>
+    <string>127.0.0.1:11434</string>
+    <key>OLLAMA_MODELS</key>
+    <string>/var/lib/cs3-ollama/.ollama/models</string>
+    <key>OLLAMA_NUM_PARALLEL</key>
+    <string>4</string>
+    <key>OLLAMA_KEEP_ALIVE</key>
+    <string>30m</string>
+    <key>OLLAMA_MAX_LOADED_MODELS</key>
+    <string>2</string>
+    <key>OLLAMA_NOHISTORY</key>
+    <string>1</string>
+  </dict>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/ollama</string>
+    <string>serve</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/var/lib/cs3-ollama</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+  <key>SoftResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>65536</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/var/lib/cs3-ollama/cs3-ollama.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/lib/cs3-ollama/cs3-ollama.err.log</string>
+</dict>
+</plist>

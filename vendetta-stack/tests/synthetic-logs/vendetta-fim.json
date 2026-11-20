@@ -1,0 +1,60 @@
+{
+  "@timestamp": "2026-11-12T09:30:17.903Z",
+  "timestamp": "2026-11-12T09:30:17.903+0000",
+  "id": "1794475817.5120847",
+  "rule": {
+    "id": "550",
+    "level": 7,
+    "description": "Integrity checksum changed.",
+    "firedtimes": 1,
+    "mail": false,
+    "groups": ["ossec", "syscheck", "syscheck_entry_modified", "syscheck_file"],
+    "mitre": {
+      "id": ["T1565.001"],
+      "tactic": ["Impact"],
+      "technique": ["Stored Data Manipulation"]
+    },
+    "pci_dss": ["11.5"],
+    "gpg13": ["4.11"],
+    "gdpr": ["II_5.1.f"],
+    "hipaa": ["164.312.c.1", "164.312.c.2"],
+    "nist_800_53": ["SI.7"],
+    "tsc": ["PI1.4", "PI1.5", "CC6.1", "CC6.8", "CC7.2", "CC7.3"]
+  },
+  "agent": {
+    "id": "001",
+    "name": "scan-target.vendetta.lab",
+    "ip": "10.77.0.20"
+  },
+  "manager": {
+    "name": "vendetta-manager"
+  },
+  "decoder": {
+    "name": "syscheck_integrity_changed"
+  },
+  "syscheck": {
+    "path": "/var/www/scan-target/routes/search.js",
+    "mode": "realtime",
+    "size_before": "3188",
+    "size_after": "3342",
+    "perm_before": "rw-r--r--",
+    "perm_after": "rw-r--r--",
+    "uid_after": "33",
+    "gid_after": "33",
+    "uname_after": "www-data",
+    "gname_after": "www-data",
+    "mtime_before": "2026-11-05T14:02:51",
+    "mtime_after": "2026-11-12T09:30:16",
+    "inode_after": 1835492,
+    "md5_before": "5d1c0b6c2a7e4b0e9d8e53f0c1f6a2b4",
+    "md5_after": "c8e2f9a4b7d13a56e0f1c92d4b6a7e38",
+    "sha1_before": "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+    "sha1_after": "7c4a8d09ca3762af61e59520943dc26494f8941b",
+    "sha256_before": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "sha256_after": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    "changed_attributes": ["size", "mtime", "md5", "sha1", "sha256"],
+    "event": "modified"
+  },
+  "location": "syscheck",
+  "full_log": "File '/var/www/scan-target/routes/search.js' modified\nMode: realtime\nChanged attributes: size,mtime,md5,sha1,sha256\nSize changed from '3188' to '3342'\nOld modification time was: '2026-11-05T14:02:51', now it is '2026-11-12T09:30:16'\nOld md5sum was: '5d1c0b6c2a7e4b0e9d8e53f0c1f6a2b4'\nNew md5sum is : 'c8e2f9a4b7d13a56e0f1c92d4b6a7e38'\nOld sha1sum was: 'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3'\nNew sha1sum is : '7c4a8d09ca3762af61e59520943dc26494f8941b'\nOld sha256sum was: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'\nNew sha256sum is : '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae'\n"
+}

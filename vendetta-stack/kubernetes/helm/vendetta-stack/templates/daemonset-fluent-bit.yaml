@@ -1,0 +1,73 @@
+# Traces: CONTRACT section 2 (fluent-bit 2020/9880/24224/24225), fluent-bit/RUNTIME.md (K8s: probes, render-only, shared log volumes).
+{{- if .Values.fluentBit.enabled }}
+{{- $fb := .Values.fluentBit }}
+{{- $shared := and $fb.sharedLogs.enabled (or .Values.errow.enabled .Values.manager.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluent-bit
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit") | indent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: vendetta-stack
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    vendetta-stack/fluent-bit: endpoint
+  ports:
+    - {name: http, port: 2020, targetPort: http}
+    - {name: events, port: 9880, targetPort: events}
+    - {name: forward, port: 24224, targetPort: forward}
+    - {name: tui, port: {{ $fb.tuiPort }}, targetPort: tui}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit") | indent 4 }}
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "fluent-bit") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit") | indent 8 }}
+        vendetta-stack/fluent-bit: endpoint
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2020"
+        prometheus.io/path: /api/v2/metrics/prometheus
+    spec:
+{{ include "vs.fluentBitPod" (dict "root" . "shared" false) | indent 6 }}
+{{- if $shared }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fluent-bit-shared
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit-shared") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "fluent-bit-shared") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "fluent-bit-shared") | indent 8 }}
+        vendetta-stack/fluent-bit: endpoint
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}
+    spec:
+{{ include "vs.fluentBitPod" (dict "root" . "shared" true) | indent 6 }}
+{{- end }}
+{{- end }}

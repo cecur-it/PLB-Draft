@@ -1,0 +1,39 @@
+$ ollama list
+NAME                                                                  ID              SIZE      MODIFIED    
+qwensploit-v2:9b                                                      8eadec5aa021    6.7 GB    3 hours ago    
+hf.co/xtools-at/Qwensploit-V2-9B-CyberSecurity-Qwen3.5-GGUF:Q4_K_M    8eadec5aa021    6.7 GB    3 hours ago    
+gemma4:31b                                                            92808281a855    19 GB     5 hours ago    
+deepseek-r1:14b                                                       c333b7232bdb    9.0 GB    11 days ago    
+qwen2.5-coder:14b                                                     9ec8897f747e    9.0 GB    11 days ago    
+gemma4:26b                                                            48eb98ec778c    16 GB     12 days ago    
+nemotron-3-nano:30b                                                   732f227e5977    18 GB     12 days ago    
+
+$ ollama show nemotron-3-nano:30b
+  Model
+    architecture        nemotron_h    
+    parameters          31.6B         
+    context length      262144        
+    embedding length    2688          
+    quantization        nvfp4         
+    requires            0.40.5        
+
+  Capabilities
+    completion     
+    tools          
+    thinking       
+        levels     false, true    
+        default    true           
+
+
+$ curl -fsS http://localhost:11434/v1/models | jq -r ".data[].id"
+qwensploit-v2:9b
+hf.co/xtools-at/Qwensploit-V2-9B-CyberSecurity-Qwen3.5-GGUF:Q4_K_M
+gemma4:31b
+deepseek-r1:14b
+qwen2.5-coder:14b
+gemma4:26b
+nemotron-3-nano:30b
+
+$ df -h /
+Filesystem        Size    Used   Avail Capacity iused ifree %iused  Mounted on
+/dev/disk3s1s1   926Gi    13Gi    83Gi    14%    426k  873M    0%   /

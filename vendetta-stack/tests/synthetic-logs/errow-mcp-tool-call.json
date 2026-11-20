@@ -1,0 +1,26 @@
+{
+  "@timestamp": "2026-11-12T09:12:09.318Z",
+  "event_type": "tool_call",
+  "request_id": "0b7d5c1e-3a42-4f6e-9c58-71d2e6a0b4f3",
+  "tenant_id": "tenant-lab",
+  "incident_id": "1794474721.4872013",
+  "role": "triage",
+  "tool": "nmap",
+  "args": {
+    "target": "scan-target.vendetta.lab",
+    "scan_type": "-sT",
+    "ports": "1-1024",
+    "timing": "-T3"
+  },
+  "target": "scan-target.vendetta.lab",
+  "decision": "dry_run",
+  "violations": [],
+  "rationale": "Confirm which management ports are exposed on the host that is being brute-forced before choosing a containment action.",
+  "gpu_seconds": 0,
+  "live": false,
+  "result_summary": "dry-run: would execute nmap -sT -p 1-1024 -T3 scan-target.vendetta.lab in sandbox errow-sandbox (MCP_LIVE=false)",
+  "chain_id": "llm-gateway-0",
+  "seq": 0,
+  "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "hash": "d86ced9a9704252ec2ac58c31c9bb0ef7b3d81b9e6804de605028f479977f5c1"
+}

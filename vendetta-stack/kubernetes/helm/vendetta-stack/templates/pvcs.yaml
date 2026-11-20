@@ -1,0 +1,19 @@
+# Traces: CONTRACT section 2 (named volumes: errow-runs, errow-ndjson, errow-shipper-state, feedback-loop, vendetta-logs, errow-dind-data).
+# Shared volumes use global.sharedAccessMode (ReadWriteMany by default). With ReadWriteOnce every consumer is co-scheduled with the errow pod (vs.scheduling).
+{{- if .Values.errow.enabled }}
+{{ include "vs.pvc" (dict "root" . "name" "errow-runs" "component" "errow" "size" .Values.errow.persistence.runsSize "class" "" "shared" true) }}
+---
+{{ include "vs.pvc" (dict "root" . "name" "errow-ndjson" "component" "errow" "size" .Values.errow.persistence.ndjsonSize "class" "" "shared" true) }}
+---
+{{ include "vs.pvc" (dict "root" . "name" "errow-shipper-state" "component" "errow-shipper" "size" .Values.errow.persistence.shipperStateSize "class" "" "shared" true) }}
+---
+{{ include "vs.pvc" (dict "root" . "name" "feedback-loop" "component" "errow-feedback" "size" .Values.errow.feedback.persistence.size "class" .Values.errow.feedback.persistence.storageClass "shared" true) }}
+{{- if .Values.errow.sandboxEnabled }}
+---
+{{ include "vs.pvc" (dict "root" . "name" "errow-dind-data" "component" "errow-dind" "size" .Values.errow.dind.persistence.size "class" .Values.errow.dind.persistence.storageClass "shared" false) }}
+{{- end }}
+{{- end }}
+{{- if .Values.manager.enabled }}
+---
+{{ include "vs.pvc" (dict "root" . "name" "vendetta-logs" "component" "vendetta-manager" "size" .Values.manager.persistence.size "class" .Values.manager.persistence.storageClass "shared" true) }}
+{{- end }}

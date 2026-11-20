@@ -1,0 +1,69 @@
+# Traces: PROMPT section 1 Tier 3 (on-prem cluster); CONTRACT section 4.4 (FailClosed profile onprem).
+# Overlay for a self-hosted cluster with a block StorageClass, a shared (RWX) StorageClass and cert-manager:
+#   helm upgrade --install vendetta-stack ./vendetta-stack -f values-onprem.yaml -n vendetta-stack --create-namespace
+# Edit the two StorageClass names to the classes of your cluster (kubectl get storageclass).
+
+global:
+  profile: onprem
+  storageClass: ceph-block
+  sharedStorageClass: cephfs
+  sharedAccessMode: ReadWriteMany
+
+certManager:
+  enabled: true
+
+config:
+  llmMode: local
+
+opensearch:
+  replicas: 3
+  javaOpts: "-Xms4g -Xmx4g"
+  resources:
+    requests: {cpu: "2", memory: 8Gi}
+    limits: {cpu: "4", memory: 8Gi}
+  persistence:
+    size: 200Gi
+  snapshots:
+    size: 200Gi
+
+fluentd:
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+
+llmGateway:
+  replicas: 2
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+
+ollama:
+  mode: gpu
+  replicas: 1
+  nodeSelector:
+    vendetta-stack/gpu: "true"
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+
+errow:
+  viewer:
+    ingress:
+      enabled: true
+      className: nginx
+      host: errow-viewer.vendetta.lab
+      tlsSecret: vendetta-stack-tls
+      basicAuthSecret: errow-viewer-basic-auth
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+
+networkPolicy:
+  enabled: true
+  externalEgress: []

@@ -1,0 +1,218 @@
+<!--
+cs3-rules.xml — the CS3 rule block on the manager: 10120-10199.
+
+Rules in this block are owned by CS3 and are additive to the stock ruleset; nothing here overrides a stock ID.
+05-cs3-manager-integration.sh checks every ID of this block and refuses to boot when one falls outside it or collides
+with a rule already present in the ruleset.
+
+How a CS3 rule gets to fire at all (each point was established the hard way on a live manager, do not "simplify" them):
+
+* analysisd walks rules in load order and stops at the first rule that matches with a level > 0, so a CS3 rule only wins
+  when it is a *child* of the stock grouping rule that owns the line. Every rule below therefore hangs off a stock parent
+  (sshd 5700, sudo 5400, auditd 80700, systemd 40700, kernel 5100/5108) and the file must stay in /var/ossec/ruleset/rules/,
+  after those parents. A rule attached to a private catch-all parent instead loses to the stock parent, which matches
+  first at level 0 and then only descends into its own children.
+* rule IDs are never taken from the stock ruleset, and 10120-10199 has a free gap in it, so a future stock update cannot
+  collide with the block and every child stays above its parent.
+* do not switch to <decoded_as> for the CS3 decoders: analysisd resolves decoded_as only against stock decoder category
+  names and silently drops a rule naming a decoder from etc/decoders.
+
+Alert flow: host endpoint/network/auth logs enter through the `syslog` remote connection (port 5140, loopback only),
+are decoded here, matched here, and — when the level reaches the global log_alert_level — land in
+/var/ossec/logs/alerts/alerts.json. Fluent Bit tails that file and posts it to POST /api/cecur/manager/alerts, which
+keeps rule ID, original event timestamp, agent identity and level. Severities therefore map straight onto the
+CS3 alert model; raising a level here is the supported way to make something louder.
+-->
+
+<group name="cs3,syslog,">
+
+  <!-- Grouping parent for the families the stock ruleset groups with <decoded_as> (sshd 5700, sudo 5400, auditd 80700).
+       Those stock parents stop matching as soon as a CS3 decoder claims the line, so the CS3 decoders need their own
+       parent. It is deliberately narrow: `program_name` keeps the rule off systemd/kernel lines, which are grouped by
+       stock rules on program_name and must keep reaching them. Level 0, so it only ever groups. -->
+  <rule id="10120" level="0">
+    <program_name>^sshd$|^sshd-session$|^sudo$|^audit$|^auditd$</program_name>
+    <description>CS3: host auth/audit log grouped</description>
+    <group>cs3_base,</group>
+  </rule>
+
+  <!-- ================================================================ host.endpoint: containers and workloads -->
+  <!-- Journald-sourced endpoint events arrive with the emitting program as the appname (containerd, dockerd, kubelet, or a
+       container name). No stock grouping rule owns those names, so a CS3 parent does: without it they fall through to the
+       generic syslog rule 1002 at level 2, below log_alert_level, and are silently dropped. Narrow on purpose: `systemd` and
+       `kernel` are deliberately absent, they keep hanging off the stock parents below. -->
+  <rule id="10121" level="0">
+    <program_name>^docker$|^dockerd$|^containerd$|^containerd-shim$|^podman$|^conmon$|^crio$|^runc$|^kubelet$|^k3s$|^k3s-agent$</program_name>
+    <description>CS3: container runtime log grouped</description>
+    <group>cs3_base,</group>
+  </rule>
+
+  <rule id="10122" level="9">
+    <if_sid>10121</if_sid>
+    <match>Out of Memory|Out Of Memory|oom-kill|Killed process|exit code 137|exited with code 137</match>
+    <description>CS3: container killed under memory pressure</description>
+    <mitre>
+      <id>T1499</id>
+    </mitre>
+    <group>cs3_endpoint,</group>
+  </rule>
+
+  <rule id="10123" level="7">
+    <if_sid>10121</if_sid>
+    <match>Failed to start|exited with|Start request repeated too quickly|panic|fatal error|segfault|core dumped</match>
+    <description>CS3: container or workload failed</description>
+    <group>cs3_endpoint,</group>
+  </rule>
+
+  <rule id="10129" level="3">
+    <if_sid>10121</if_sid>
+    <description>CS3: unmatched container runtime line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+  <!-- ================================================================ host.auth -->
+  <!-- The narrow decoders that supply $(srcuser)/$(dstuser)/$(srcip) run before these rules. `match`/`program_name` are
+       plain OS_Regex fragments: no quantifiers in program_name ('^.*$' never matches, '^sshd$' does). -->
+  <rule id="10130" level="5">
+    <if_sid>10120</if_sid>
+    <program_name>^sshd$|^sshd-session$</program_name>
+    <match>Failed password for|Failed publickey for</match>
+    <description>CS3: SSH authentication failure for $(dstuser) from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>cs3_auth,authentication_failed,</group>
+  </rule>
+
+  <rule id="10131" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>10130</if_matched_sid>
+    <same_source_ip />
+    <description>CS3: repeated SSH authentication failures from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>cs3_auth,authentication_failed,</group>
+  </rule>
+
+  <rule id="10132" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^sshd$|^sshd-session$</program_name>
+    <match>Accepted password for</match>
+    <description>CS3: SSH login for $(dstuser) from $(srcip)</description>
+    <group>cs3_auth,authentication_success,</group>
+  </rule>
+
+  <rule id="10133" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^sshd$|^sshd-session$</program_name>
+    <match>Accepted publickey for</match>
+    <description>CS3: SSH public-key login for $(dstuser) from $(srcip)</description>
+    <group>cs3_auth,authentication_success,</group>
+  </rule>
+
+  <rule id="10135" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^sshd$|^sshd-session$</program_name>
+    <description>CS3: unmatched sshd line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+  <rule id="10140" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^sudo$</program_name>
+    <match>COMMAND=</match>
+    <description>CS3: $(srcuser) ran a privileged command as $(dstuser): $(command)</description>
+    <group>cs3_auth,privilege_escalation,</group>
+  </rule>
+
+  <rule id="10141" level="6">
+    <if_sid>10120</if_sid>
+    <program_name>^sudo$</program_name>
+    <match>authentication failure</match>
+    <description>CS3: sudo authentication failure for $(srcuser)</description>
+    <mitre>
+      <id>T1548.003</id>
+    </mitre>
+    <group>cs3_auth,authentication_failed,</group>
+  </rule>
+
+  <rule id="10145" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^sudo$</program_name>
+    <description>CS3: unmatched sudo line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+  <!-- ================================================================ host.audit -->
+  <rule id="10150" level="8">
+    <if_sid>10120</if_sid>
+    <program_name>^audit$|^auditd$</program_name>
+    <match>type=EXECVE|type=SYSCALL</match>
+    <description>CS3: audited process execution: $(command)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>cs3_audit,</group>
+  </rule>
+
+  <rule id="10151" level="10">
+    <if_sid>10120</if_sid>
+    <program_name>^audit$|^auditd$</program_name>
+    <match>auditctl|auditd|ausearch</match>
+    <description>CS3: audit tooling touched: $(command) (possible audit tampering)</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>cs3_audit,defense_evasion,</group>
+  </rule>
+
+  <rule id="10155" level="3">
+    <if_sid>10120</if_sid>
+    <program_name>^audit$|^auditd$</program_name>
+    <description>CS3: unmatched audit line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+  <!-- ================================================================ host.endpoint -->
+  <rule id="10160" level="7">
+    <if_sid>40700</if_sid>
+    <program_name>^systemd$</program_name>
+    <match>Failed to start</match>
+    <description>CS3: system service failure: $(service)</description>
+    <group>cs3_endpoint,</group>
+  </rule>
+
+  <rule id="10165" level="3">
+    <if_sid>40700</if_sid>
+    <description>CS3: unmatched systemd line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+  <rule id="10170" level="9">
+    <if_sid>5100</if_sid>
+    <match>segfault|core dumped</match>
+    <description>CS3: process crash reported by the kernel: $(service)</description>
+    <group>cs3_endpoint,</group>
+  </rule>
+
+  <!-- ================================================================ host.network -->
+  <!-- Child of stock 5108 ("Out of Memory: ") rather than of 5100: 5108 loads before every CS3 rule, so as a sibling it
+       would always win the line first. As its child, CS3 still gets the last word, and the level is repeated at 12 so
+       taking the line over does not quieten it. -->
+  <rule id="10171" level="12">
+    <if_sid>5108</if_sid>
+    <match>Out of Memory|Out of memory|OOM killer|oom-kill</match>
+    <description>CS3: kernel memory pressure / OOM event</description>
+    <mitre>
+      <id>T1499</id>
+    </mitre>
+    <group>cs3_network,</group>
+  </rule>
+
+  <rule id="10179" level="3">
+    <if_sid>5100</if_sid>
+    <description>CS3: unmatched kernel line</description>
+    <group>cs3_catchall,</group>
+  </rule>
+
+</group>

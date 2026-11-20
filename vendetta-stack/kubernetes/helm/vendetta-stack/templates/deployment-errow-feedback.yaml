@@ -1,0 +1,173 @@
+# Traces: CONTRACT section 6 (feedback loop 9102), errow/feedback-loop/RUNTIME.md (K8s: Recreate Deployment, PVC, gateway reach, approvals ConfigMap).
+{{- if .Values.errow.enabled }}
+{{- $f := .Values.errow.feedback }}
+{{- $c := .Values.config }}
+{{- $env := dict
+  "FEEDBACK_PORT" "9102"
+  "ERROW_FEEDBACK_LIVE" $c.feedbackLive
+  "ERROW_FEEDBACK_FORENSIC" $c.feedbackForensic
+  "ERROW_FEEDBACK_ALLOWED_TARGETS" (default $c.errowTargets $c.feedbackAllowedTargets)
+  "ERROW_FEEDBACK_AR_COMMAND" $c.feedbackArCommand
+  "ERROW_FEEDBACK_APPROVAL_KEY_FILE" "/run/approval/feedback_approval_key"
+  "ERROW_FEEDBACK_APPROVAL_KEYS_DIR" "/run/approval/keys"
+  "ERROW_FEEDBACK_APPROVAL_THRESHOLD" (toString $c.approvalThreshold)
+  "VENDETTA_API_CA_FILE" "/pki/ca.crt"
+  "VENDETTA_API_URL" "https://vendetta-manager:55000"
+  "VENDETTA_API_USER" $c.vendettaApiUser
+  "OPENSEARCH_URL" "https://opensearch:9200"
+  "OPENSEARCH_USER" $c.opensearchUser
+  "LLM_GATEWAY_URL" "https://llm-gateway:9101" }}
+{{- $secretNames := list "feedback_webhook_token" "vendetta_api_password" "opensearch_admin_password" "llm_gateway_token" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-feedback
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback") | indent 4 }}
+spec:
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "errow-feedback") | indent 4 }}
+  ports:
+    - {name: http, port: 9102, targetPort: http}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-feedback
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-feedback") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback") | indent 8 }}
+      annotations:
+        checksum/approvals: {{ .Files.Get "files/errow/feedback-loop/APPROVALS.md" | sha256sum }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 8 }}
+      containers:
+        - name: feedback
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.errowFeedback) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+{{ include "vs.env" $env | indent 12 }}
+          ports:
+            - {name: http, containerPort: 9102}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 12 }}
+          resources:
+{{ toYaml $f.resources | indent 12 }}
+          volumeMounts:
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: approval, mountPath: /run/approval, readOnly: true}
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: approvals, mountPath: /opt/feedback-loop/APPROVALS.md, subPath: APPROVALS.md, readOnly: true}
+            - {name: state, mountPath: /var/log/feedback-loop}
+      volumes:
+{{ include "vs.secretsVolume" (dict "root" . "names" $secretNames) | indent 8 }}
+        - name: approval
+          secret:
+            secretName: {{ .Values.secrets.approvalSecret }}
+            optional: true
+            defaultMode: 0440
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "errow-feedback"))) | indent 8 }}
+        - name: approvals
+          configMap:
+            name: feedback-approvals
+        - name: state
+          persistentVolumeClaim:
+            claimName: feedback-loop
+{{- if $f.poller.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: errow-feedback-poller
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback-poller") | indent 4 }}
+spec:
+  schedule: {{ $f.poller.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+{{ include "vs.labels" (dict "root" . "component" "errow-feedback-poller") | indent 12 }}
+        spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 10 }}
+          restartPolicy: Never
+          securityContext:
+{{ include "vs.podSecurity" (dict "uid" 10001) | indent 12 }}
+          {{- if ne .Values.global.sharedAccessMode "ReadWriteMany" }}
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "errow-feedback") | indent 22 }}
+          {{- end }}
+          containers:
+            - name: poller
+              image: {{ include "vs.image" (dict "root" . "img" .Values.images.errowFeedback) }}
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              command: ["/opt/feedback-loop/vendetta-to-errow.sh", "--via-llm"]
+              env:
+{{ include "vs.env" $env | indent 16 }}
+              securityContext:
+{{ include "vs.containerSecurity" (dict) | indent 16 }}
+              resources:
+{{ toYaml $f.resources | indent 16 }}
+              volumeMounts:
+                - {name: secrets, mountPath: /run/secrets, readOnly: true}
+                - {name: approval, mountPath: /run/approval, readOnly: true}
+                - {name: pki, mountPath: /pki, readOnly: true}
+                - {name: approvals, mountPath: /opt/feedback-loop/APPROVALS.md, subPath: APPROVALS.md, readOnly: true}
+                - {name: state, mountPath: /var/log/feedback-loop}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+{{ include "vs.secretsVolume" (dict "root" . "names" $secretNames) | indent 12 }}
+            - name: approval
+              secret:
+                secretName: {{ .Values.secrets.approvalSecret }}
+                optional: true
+                defaultMode: 0440
+{{ include "vs.pkiVolume" (dict "root" . "certs" (list (dict "svc" "errow-feedback"))) | indent 12 }}
+            - name: approvals
+              configMap:
+                name: feedback-approvals
+            - name: state
+              persistentVolumeClaim:
+                claimName: feedback-loop
+            - name: tmp
+              emptyDir: {}
+{{- end }}
+{{- end }}

@@ -1,0 +1,8 @@
+# Parameter fragment for gemma4:26b (entry tier: forensic role, CPU/16 GB-VRAM fallback target).
+# pull-models.sh prepends `FROM <verified GGUF>` when registering the model in the air-gap profile;
+# the chat TEMPLATE is taken from the chat template embedded in the GGUF.
+# Traces: PROMPT §1 Tier 4, CONTRACT §10.
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.05

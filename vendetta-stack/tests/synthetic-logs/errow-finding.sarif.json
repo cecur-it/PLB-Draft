@@ -1,0 +1,255 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "errow",
+          "informationUri": "https://errow.ai",
+          "rules": [
+            {
+              "id": "CWE-89",
+              "name": "SQL Injection in product search (q parameter)",
+              "shortDescription": {
+                "text": "SQL Injection in product search (q parameter)"
+              },
+              "fullDescription": {
+                "text": "The `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation. A single quote followed by a UNION SELECT returns rows from the users table."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "text": "The `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation. A single quote followed by a UNION SELECT returns rows from the users table.\n\nAn unauthenticated attacker can read arbitrary database content, including credential hashes of every account.\n\nUse parameterised queries / prepared statements for every database access, validate `q` against an allow-list pattern, and stop returning raw database errors to clients.",
+                "markdown": "The `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation. A single quote followed by a UNION SELECT returns rows from the users table.\n\nAn unauthenticated attacker can read arbitrary database content, including credential hashes of every account.\n\nUse parameterised queries / prepared statements for every database access, validate `q` against an allow-list pattern, and stop returning raw database errors to clients."
+              },
+              "properties": {
+                "security-severity": "8.6",
+                "tags": [
+                  "security",
+                  "CWE-89",
+                  "stride:T"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/89.html"
+            },
+            {
+              "id": "CWE-79",
+              "name": "Reflected XSS in search results page",
+              "shortDescription": {
+                "text": "Reflected XSS in search results page"
+              },
+              "fullDescription": {
+                "text": "The `q` value is echoed into the search results HTML without output encoding, so a crafted link executes attacker-controlled script in the victim's browser."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "text": "The `q` value is echoed into the search results HTML without output encoding, so a crafted link executes attacker-controlled script in the victim's browser.\n\nSession token theft and account takeover for any user who opens a malicious link.\n\nContextually encode all reflected values, adopt a strict Content-Security-Policy, and mark session cookies HttpOnly and SameSite=Strict.",
+                "markdown": "The `q` value is echoed into the search results HTML without output encoding, so a crafted link executes attacker-controlled script in the victim's browser.\n\nSession token theft and account takeover for any user who opens a malicious link.\n\nContextually encode all reflected values, adopt a strict Content-Security-Policy, and mark session cookies HttpOnly and SameSite=Strict."
+              },
+              "properties": {
+                "security-severity": "6.1",
+                "tags": [
+                  "security",
+                  "CWE-79",
+                  "stride:T",
+                  "stride:I"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/79.html"
+            },
+            {
+              "id": "CWE-200",
+              "name": "Server banner discloses framework and version",
+              "shortDescription": {
+                "text": "Server banner discloses framework and version"
+              },
+              "fullDescription": {
+                "text": "Responses expose `X-Powered-By: Express` and verbose stack traces on malformed requests, easing targeted exploitation."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "help": {
+                "text": "Responses expose `X-Powered-By: Express` and verbose stack traces on malformed requests, easing targeted exploitation.\n\nAttackers can fingerprint the stack and prioritise known framework weaknesses.\n\nRemove the X-Powered-By header, return generic error bodies, and disable stack traces outside development.",
+                "markdown": "Responses expose `X-Powered-By: Express` and verbose stack traces on malformed requests, easing targeted exploitation.\n\nAttackers can fingerprint the stack and prioritise known framework weaknesses.\n\nRemove the X-Powered-By header, return generic error bodies, and disable stack traces outside development."
+              },
+              "properties": {
+                "security-severity": "3.7",
+                "tags": [
+                  "security",
+                  "CWE-200",
+                  "stride:I"
+                ]
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/200.html"
+            }
+          ],
+          "version": "1.7.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-89",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "SQL Injection in product search (q parameter)\n\nThe `q` query parameter of GET /rest/products/search is concatenated into a SQL statement without parameterisation. A single quote followed by a UNION SELECT returns rows from the users table."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "/rest/products/search",
+                  "kind": "endpoint"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "29086aa0756bcc40406def84d8e48c8d99d6eecfe57aedd74acaacd79b863866"
+          },
+          "properties": {
+            "security-severity": "8.6",
+            "errow_vuln_class_hash": "091274e2ad40f12c26f944cb00be2712c536b9e81137676e98311bc2ccf04d16",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0001",
+              "severity": "high",
+              "cvss": 8.6,
+              "timestamp": "2026-11-12T09:14:31.482913+00:00",
+              "target": "http://scan-target.vendetta.lab:8080",
+              "endpoint": "/rest/products/search",
+              "method": "GET",
+              "cwe": "CWE-89",
+              "impact": "An unauthenticated attacker can read arbitrary database content, including credential hashes of every account.",
+              "technical_analysis": "Response time differential (SLEEP) and boolean-based probes confirmed injection into a string context; UNION column count is 9. The back-end is SQLite and the error message leaks the failing query.",
+              "remediation_steps": "Use parameterised queries / prepared statements for every database access, validate `q` against an allow-list pattern, and stop returning raw database errors to clients.",
+              "counterevidence": "No WAF or input filter was observed between the client and the application.",
+              "confidence": "high",
+              "severity_change_conditions": "Severity drops to medium if the database account is read-only and holds no credential data.",
+              "fix_verification": "Re-run the UNION and boolean probes after deploying parameterised queries; both must return an empty result set.",
+              "poc": {
+                "description": "GET /rest/products/search?q=')) UNION SELECT id,email,password,4,5,6,7,8,9 FROM Users-- returns user rows in the product list.",
+                "script_available": true
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Reflected XSS in search results page\n\nThe `q` value is echoed into the search results HTML without output encoding, so a crafted link executes attacker-controlled script in the victim's browser."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "/#/search",
+                  "kind": "endpoint"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "57ce75c14f70585153ddd998e7d292e757332bb7cd5def8c99862f44f23a20e3"
+          },
+          "properties": {
+            "security-severity": "6.1",
+            "errow_vuln_class_hash": "841d192a59e6812ef6a771cf84fa82963f628884ed58037aa16b7e6cdd3695f8",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0002",
+              "severity": "medium",
+              "cvss": 6.1,
+              "timestamp": "2026-11-12T09:21:07.118204+00:00",
+              "target": "http://scan-target.vendetta.lab:8080",
+              "endpoint": "/#/search",
+              "method": "GET",
+              "cwe": "CWE-79",
+              "impact": "Session token theft and account takeover for any user who opens a malicious link.",
+              "technical_analysis": "The payload `<iframe src=\"javascript:alert(1)\">` is rendered unescaped inside the results header; the session cookie is not HttpOnly.",
+              "remediation_steps": "Contextually encode all reflected values, adopt a strict Content-Security-Policy, and mark session cookies HttpOnly and SameSite=Strict.",
+              "counterevidence": "No CSP header or output encoding was present on the response.",
+              "confidence": "high",
+              "severity_change_conditions": "Severity rises to high if the session cookie is readable from script and tokens grant administrative access.",
+              "poc": {
+                "description": "Open /#/search?q=<iframe src=\"javascript:alert(1)\"> in a browser; the alert fires."
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-200",
+          "ruleIndex": 2,
+          "level": "note",
+          "message": {
+            "text": "Server banner discloses framework and version\n\nResponses expose `X-Powered-By: Express` and verbose stack traces on malformed requests, easing targeted exploitation."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "SECURITY.md"
+                }
+              }
+            },
+            {
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "/api/Challenges",
+                  "kind": "endpoint"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash": "91e8558d5a7f16fb5d6ae1d0ab49951328949c8fd14c9440ae35315bcf1cd62b"
+          },
+          "properties": {
+            "security-severity": "3.7",
+            "errow_vuln_class_hash": "10170ad31276bbb9c549fef5f2c9b9ff31a8550bf0ad5c7b82d973efff5d2eb3",
+            "synthetic_location": true,
+            "errow": {
+              "id": "vuln-0003",
+              "severity": "low",
+              "cvss": 3.7,
+              "timestamp": "2026-11-12T09:26:44.906551+00:00",
+              "target": "http://scan-target.vendetta.lab:8080",
+              "endpoint": "/api/Challenges",
+              "method": "GET",
+              "cwe": "CWE-200",
+              "impact": "Attackers can fingerprint the stack and prioritise known framework weaknesses.",
+              "technical_analysis": "A malformed JSON body to /api/Challenges returns a full Express stack trace including file system paths.",
+              "remediation_steps": "Remove the X-Powered-By header, return generic error bodies, and disable stack traces outside development.",
+              "confidence": "medium",
+              "confidence_rationale": "Observed on one endpoint only; other routes were not fuzzed for error handling."
+            }
+          }
+        }
+      ],
+      "properties": {
+        "syntheticLocationCount": 3
+      }
+    }
+  ]
+}

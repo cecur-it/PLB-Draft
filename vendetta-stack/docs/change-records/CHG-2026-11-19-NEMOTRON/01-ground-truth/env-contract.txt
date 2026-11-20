@@ -1,0 +1,24 @@
+# env contract evidence Thu Nov 19 08:23:25 UTC 2026
+## .env.example role block (no deployed .env on this lab host)
+# Stable contract for every client of the router: its base URL, the token (CS3_ROUTER_KEY may also be given inline) and
+# the five role -> model bindings. Change a role here and every consumer follows; the OLLAMA_*/INFERENCE_* names below are
+# deprecated aliases that still work but must not be reintroduced into new code.
+CS3_ROUTER_URL=https://llm-gateway:9101
+CS3_ROUTER_KEY=
+CS3_MODEL_TRIAGE=nemotron-3-nano:30b
+CS3_MODEL_REASONING=gemma4:26b
+CS3_MODEL_REASONING_DEEP=gemma4:31b
+CS3_MODEL_SECURITY=nemotron-3-nano:30b
+CS3_MODEL_ERROW_SECURITY=cs3-errow-security
+# Deprecated aliases (kept for older .env files; the router/entrypoint prefer CS3_MODEL_* above).
+OLLAMA_PRIMARY_MODEL=nemotron-3-nano:30b
+OLLAMA_FALLBACK_MODEL=gemma4:26b
+
+## profile declaration
+profile=cloud|onprem|airgap|edge; this lab host: CS3_PROFILE=cloud (local Ollama, no hosted key). Errow profile: Local CLI, Docker-in-Docker scan sandbox.
+
+## deprecated aliases documented in
+./llm-gateway/README.md
+./llm-gateway/RUNTIME.md
+./docs/qwensploit-routing-rationale.md
+./.env.example

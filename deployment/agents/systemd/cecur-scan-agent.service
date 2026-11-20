@@ -1,0 +1,27 @@
+[Unit]
+Description=Cecur CS3 on-host scan agent (FIM / SCA / vulnerability jobs)
+After=network-online.target cecur-forwarder.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/cecur/forwarder.env
+ExecStart=/usr/bin/node /usr/local/lib/cecur/cs3-scan-agent.mjs
+Restart=always
+RestartSec=10
+User=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/cecur-scan
+StateDirectory=cecur-scan
+StateDirectoryMode=0700
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+# OpenSCAP system_info uses netlink for interface inventory.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

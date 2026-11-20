@@ -1,0 +1,106 @@
+# Traces: CONTRACT section 2 (vendetta-manager 1514/1515/55000, 1516 management-only, vendetta-logs), PROMPT section 1 Tier 1 (optional manager).
+{{- if .Values.manager.enabled }}
+{{- $mg := .Values.manager }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: vendetta-manager
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "vendetta-manager") | indent 4 }}
+  {{- with $mg.agentService.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ $mg.agentService.type }}
+  selector:
+{{ include "vs.selector" (dict "root" . "component" "vendetta-manager") | indent 4 }}
+  ports:
+    - {name: events, port: 1514, targetPort: events}
+    - {name: authd, port: 1515, targetPort: authd}
+    - {name: api, port: 55000, targetPort: api}
+    - {name: syslog, port: 5140, targetPort: syslog}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vendetta-manager
+  labels:
+{{ include "vs.labels" (dict "root" . "component" "vendetta-manager") | indent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+{{ include "vs.selector" (dict "root" . "component" "vendetta-manager") | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "vs.labels" (dict "root" . "component" "vendetta-manager") | indent 8 }}
+    spec:
+{{ include "vs.podDefaults" (dict "root" .) | indent 6 }}
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+{{ include "vs.scheduling" (dict "root" . "cfg" $mg "component" "vendetta-manager" "co" true) | indent 6 }}
+      containers:
+        - name: manager
+          image: {{ include "vs.image" (dict "root" . "img" .Values.images.vendettaManager) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - {name: CS3_MANAGER_FEED_MODE, value: {{ $mg.feedMode | default "off" | quote }}}
+            - {name: CS3_MANAGER_CTI_URL, value: {{ $mg.ctiUrl | default "" | quote }}}
+          command:
+            - /bin/bash
+            - -c
+            - API_PASSWORD="$(cat /run/secrets/vendetta_api_password)" exec /manager-integration/entrypoint.sh
+          ports:
+            - {name: events, containerPort: 1514}
+            - {name: authd, containerPort: 1515}
+            - {name: api, containerPort: 55000}
+            - {name: syslog, containerPort: 5140, protocol: UDP}
+          startupProbe:
+            exec:
+              command: ["/bin/bash", "-c", "/var/ossec/bin/wazuh-control status | grep -q 'wazuh-apid is running'"]
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "/var/ossec/bin/wazuh-control status | grep -q 'wazuh-apid is running'"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command: ["/bin/bash", "-c", "/var/ossec/bin/wazuh-control status | grep -q 'wazuh-apid is running'"]
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+              add: {{ toJson $mg.capabilities }}
+          resources:
+{{ toYaml $mg.resources | indent 12 }}
+          volumeMounts:
+            - {name: secrets, mountPath: /run/secrets, readOnly: true}
+            - {name: logs, mountPath: /var/ossec/logs}
+            - {name: integration, mountPath: /manager-integration, readOnly: true}
+      volumes:
+{{ include "vs.secretsVolume" (dict "root" . "names" (list "vendetta_api_password")) | indent 8 }}
+        - name: logs
+          persistentVolumeClaim:
+            claimName: vendetta-logs
+        # CS3 rule block, decoders and the boot-time ossec.conf splice. defaultMode 0755 so the two scripts run.
+        - name: integration
+          configMap:
+            name: vendetta-manager-integration
+            defaultMode: 0755
+            items:
+{{ include "vs.treeItems" (dict "root" . "dir" "vendetta/manager") | indent 14 }}
+{{- end }}

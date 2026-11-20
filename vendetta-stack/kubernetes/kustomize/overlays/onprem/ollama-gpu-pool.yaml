@@ -1,0 +1,15 @@
+# Traces: PROMPT section 1 Tier 3 (on-prem GPU pool); CONTRACT section 4.4 (only the gateway reaches the Ollama workers).
+# Label the GPU nodes `vendetta-stack/gpu=true` and taint them `nvidia.com/gpu=:NoSchedule` (kubernetes/README.md).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+spec:
+  template:
+    spec:
+      nodeSelector:
+        vendetta-stack/gpu: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule

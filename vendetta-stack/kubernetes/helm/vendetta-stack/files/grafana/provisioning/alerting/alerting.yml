@@ -1,0 +1,3 @@
+# Traces: PROMPT §1 Tier 1 (Grafana, air-gapped)
+# Grafana-managed alert rules are unused: alert rules are Prometheus rules (prometheus/alerts.yml).
+apiVersion: 1

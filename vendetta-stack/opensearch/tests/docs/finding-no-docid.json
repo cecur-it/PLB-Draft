@@ -1,0 +1,47 @@
+{
+  "@timestamp": "2026-11-12T09:33:18.226Z",
+  "stream": "findings",
+  "run": "scan-target-vendetta-lab-8080_3f9a",
+  "source": "errow",
+  "ruleId": "CWE-22",
+  "ruleIndex": 2,
+  "level": "error",
+  "message": {
+    "text": "Path traversal in the file download endpoint (file parameter)"
+  },
+  "locations": [
+    {
+      "physicalLocation": {
+        "artifactLocation": {
+          "uri": "SECURITY.md"
+        }
+      }
+    },
+    {
+      "logicalLocations": [
+        {
+          "fullyQualifiedName": "/ftp/download",
+          "kind": "endpoint"
+        }
+      ]
+    }
+  ],
+  "partialFingerprints": {
+    "primaryLocationLineHash": "8c41d7a29e5b4f1a93d60e7b2c5a8f14e9b3d6a07c2f581e4a9d03b6c7e1f25a"
+  },
+  "properties": {
+    "security-severity": "7.5",
+    "synthetic_location": true,
+    "errow": {
+      "id": "vuln-0003",
+      "severity": "high",
+      "cvss": 7.5,
+      "timestamp": "2026-11-12T09:33:18.226104+00:00",
+      "target": "http://scan-target.vendetta.lab:8080",
+      "endpoint": "/ftp/download",
+      "method": "GET",
+      "cwe": "CWE-22",
+      "confidence": "medium"
+    }
+  }
+}

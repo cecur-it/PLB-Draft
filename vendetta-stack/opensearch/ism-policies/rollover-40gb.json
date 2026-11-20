@@ -1,0 +1,63 @@
+{
+  "policy": {
+    "description": "Rollover lifecycle for the vendetta-alerts write alias: roll over when the largest primary shard reaches 40gb or the index is 1d old, then warm after 7d, cold after 30d (snapshot to vendetta-snapshots), delete after 365d. Auto-attached to vendetta-alerts-0* (the rollover-numbered backing indices) with priority 100 so it wins over hot-warm-cold. Requires index.plugins.index_state_management.rollover_alias (set by vendetta-alerts-template).",
+    "default_state": "hot",
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "retry": { "count": 3, "backoff": "exponential", "delay": "1m" },
+            "rollover": { "min_primary_shard_size": "40gb", "min_index_age": "1d" }
+          },
+          { "index_priority": { "priority": 100 } }
+        ],
+        "transitions": [
+          { "state_name": "warm", "conditions": { "min_index_age": "7d" } }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [
+          { "index_priority": { "priority": 50 } },
+          { "allocation": { "require": { "box_type": "warm" }, "wait_for": false } },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "10m" },
+            "force_merge": { "max_num_segments": 1 }
+          }
+        ],
+        "transitions": [
+          { "state_name": "cold", "conditions": { "min_index_age": "30d" } }
+        ]
+      },
+      {
+        "name": "cold",
+        "actions": [
+          { "index_priority": { "priority": 10 } },
+          { "read_only": {} },
+          { "allocation": { "require": { "box_type": "cold" }, "wait_for": false } },
+          {
+            "retry": { "count": 5, "backoff": "exponential", "delay": "30m" },
+            "snapshot": {
+              "repository": "vendetta-snapshots",
+              "snapshot": "{{ctx.index}}-{{ctx.indexUuid}}"
+            }
+          }
+        ],
+        "transitions": [
+          { "state_name": "delete", "conditions": { "min_index_age": "365d" } }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          { "delete": {} }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      { "index_patterns": ["vendetta-alerts-0*"], "priority": 100 }
+    ]
+  }
+}

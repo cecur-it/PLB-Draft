@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+X-CS3-Model: nemotron-3-nano:30b
+X-CS3-Task-Class: security
+X-CS3-Degraded-Model-Fallback: false
+X-CS3-Attempted-Fallbacks: 
+Content-Type: application/json; charset=utf-8
+X-Request-Id: 1ab7a4bb1a4c448294b87e985376d3a2
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+Content-Length: 2860
+Date: Thu, 19 Nov 2026 07:42:21 GMT
+Server: Python/3.12 aiohttp/3.14.5
+

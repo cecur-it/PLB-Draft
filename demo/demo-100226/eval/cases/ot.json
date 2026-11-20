@@ -1,0 +1,5 @@
+[
+  { "id": "o1", "log": "Modbus write single coil from unknown host 10.20.5.77 to PLC-07 outside maintenance window", "tactic": "Impair Process Control", "technique": "T0855", "severity": "CRITICAL" },
+  { "id": "o2", "log": "Engineering workstation downloaded new ladder logic to PLC-03 at 02:14 without change ticket", "tactic": "Inhibit Response Function", "technique": "T0843", "severity": "CRITICAL" },
+  { "id": "o3", "log": "Unexpected firmware version change reported by historian gateway HIST-02", "tactic": "Persistence", "technique": "T0839", "severity": "HIGH" }
+]

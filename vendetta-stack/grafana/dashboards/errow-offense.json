@@ -1,0 +1,303 @@
+{
+  "uid": "cs3-errow-offense",
+  "title": "Vendetta Stack / Errow offensive platform",
+  "description": "Errow findings, runs, LLM spend and MCP tool decisions. Prometheus: cs3_pipeline_errow_findings_total, cs3_sp_errow_findings_60s, fluentd_output_status_* for the feedback/cloud/execd legs, llm_gateway_mcp_tool_calls_total. OpenSearch: errow-findings-*, errow-runs-*, errow-llm-logs-*, errow-mcp-*.",
+  "tags": ["vendetta-stack", "errow", "offense"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "timezone": "utc",
+  "time": {"from": "now-24h", "to": "now"},
+  "annotations": {"list": []},
+  "links": [
+    {"title": "Pipeline health", "type": "link", "url": "/d/cs3-pipeline-health", "icon": "dashboard", "targetBlank": false},
+    {"title": "Vendetta overview", "type": "link", "url": "/d/cs3-vendetta-overview", "icon": "dashboard", "targetBlank": false},
+    {"title": "LLM SLO", "type": "link", "url": "/d/cs3-llm-slo", "icon": "dashboard", "targetBlank": false}
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "level", "label": "SARIF level", "type": "custom", "multi": true, "includeAll": true,
+        "query": "error,warning,note,none",
+        "options": [
+          {"selected": true, "text": "All", "value": "$__all"},
+          {"selected": false, "text": "error", "value": "error"},
+          {"selected": false, "text": "warning", "value": "warning"},
+          {"selected": false, "text": "note", "value": "note"},
+          {"selected": false, "text": "none", "value": "none"}
+        ],
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {"id": 1, "type": "row", "title": "Findings pipeline (Prometheus)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "panels": []},
+    {
+      "id": 2, "type": "stat", "title": "Findings in range", "description": "increase of cs3_pipeline_errow_findings_total over the dashboard range.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(cs3_pipeline_errow_findings_total[$__range])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "High + critical in range", "description": "Findings that also go to the feedback webhook (severity >= high).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 10}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(cs3_pipeline_errow_findings_total{severity=~\"high|critical\"}[$__range])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Feedback webhook errors (1h)", "description": "fluentd_output_status_num_errors for http-feedback-loop (Errow finding -> Vendetta feedback service).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(fluentd_output_status_num_errors{plugin_id=\"http-feedback-loop\"}[1h])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "errow-mcp scrape", "description": "up{job=\"errow-mcp\"} (errow-mcp is scraped for liveness; the tool-call decisions come from the gateway metric).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red", "index": 0}, "1": {"text": "UP", "color": "green", "index": 1}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto", "justifyMode": "center"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "min(up{job=\"errow-mcp\"})", "instant": true}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Findings/s by severity", "description": "severity = result.properties.errow.severity (critical/high/medium/low/info).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "critical"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "dark-red"}}]},
+        {"matcher": {"id": "byName", "options": "high"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "medium"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]},
+        {"matcher": {"id": "byName", "options": "low"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+        {"matcher": {"id": "byName", "options": "info"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (severity) (rate(cs3_pipeline_errow_findings_total[$__rate_interval]))", "legendFormat": "{{severity}}"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Edge window: findings by SARIF level", "description": "cs3_sp_errow_findings_60s{level}: 60-second tumbling counts from the Fluent Bit stream processor.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (level) (cs3_sp_errow_findings_60s{level=~\"$level\"})", "legendFormat": "{{level}}"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Errow streams ingested by Fluent Bit (records/s)", "description": "Per errow_* tail/forward input alias (findings, runs, coverage, llm_logs, mcp_events, runtime_events, tui_events, proxy, ...).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (name) (rate(fluentbit_input_records_total{name=~\"errow_.*\"}[$__rate_interval])) > 0", "legendFormat": "{{name}}"}]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Errow sinks emitted by Fluentd (records/s)", "description": "opensearch-errow* indices, http-feedback-loop (severity >= high), http-errow-cloud (opt-in), http-vendetta-execd (opt-in live execution).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (plugin_id) (rate(fluentd_output_status_emit_records{plugin_id=~\"opensearch-errow.*|http-feedback-loop|http-errow-cloud|http-vendetta-execd\"}[$__rate_interval]))", "legendFormat": "{{plugin_id}}"}]
+    },
+    {"id": 10, "type": "row", "title": "MCP tool calls (llm-gateway)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 21}, "panels": []},
+    {
+      "id": 11, "type": "timeseries", "title": "Tool calls/s by decision", "description": "llm_gateway_mcp_tool_calls_total{decision}: allowed, denied, rate_limited, dry_run, executed, error.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "denied"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+        {"matcher": {"id": "byName", "options": "rate_limited"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "error"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "dark-red"}}]},
+        {"matcher": {"id": "byName", "options": "allowed"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]},
+        {"matcher": {"id": "byName", "options": "executed"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+        {"matcher": {"id": "byName", "options": "dry_run"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "purple"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (decision) (rate(llm_gateway_mcp_tool_calls_total[$__rate_interval]))", "legendFormat": "{{decision}}"}]
+    },
+    {
+      "id": 12, "type": "bargauge", "title": "Top tools in range (by decision)", "description": "increase of llm_gateway_mcp_tool_calls_total per tool and decision.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "topk(12, sum by (tool, decision) (increase(llm_gateway_mcp_tool_calls_total[$__range]))) > 0", "legendFormat": "{{tool}} / {{decision}}", "instant": true}]
+    },
+    {"id": 13, "type": "row", "title": "Stored Errow data (OpenSearch)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 30}, "panels": []},
+    {
+      "id": 14, "type": "timeseries", "title": "Findings over time by SARIF level", "description": "errow-findings-*: one document per SARIF result.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 40, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [
+          {"id": "2", "type": "terms", "field": "level", "settings": {"size": "5", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}},
+          {"id": "3", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}
+        ]
+      }]
+    },
+    {
+      "id": 15, "type": "piechart", "title": "Findings by Errow severity", "description": "properties.errow.severity.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 31},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "properties.errow.severity", "settings": {"size": "6", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 16, "type": "bargauge", "title": "Top CWE", "description": "properties.errow.cwe.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 31},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level AND _exists_:properties.errow.cwe",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "properties.errow.cwe", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 17, "type": "bargauge", "title": "Top rules (ruleId)", "description": "SARIF ruleId with the most results.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 39},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "ruleId", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 18, "type": "bargauge", "title": "Most targeted endpoints", "description": "properties.errow.target.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 39},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level AND _exists_:properties.errow.target",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "properties.errow.target", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 19, "type": "table", "title": "Latest findings", "description": "Newest 50 SARIF results.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 39},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}, "sortBy": [{"displayName": "@timestamp", "desc": true}]},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-findings"}, "timeField": "@timestamp", "query": "level:$level",
+        "metrics": [{"id": "1", "type": "raw_data", "settings": {"size": "50"}}],
+        "bucketAggs": []
+      }],
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"_id": true, "_index": true, "_type": true, "highlight": true, "sort": true}, "indexByName": {"@timestamp": 0, "level": 1, "ruleId": 2, "properties.errow.severity": 3, "message.text": 4}, "renameByName": {}}}]
+    },
+    {
+      "id": 20, "type": "bargauge", "title": "LLM spend per run (max snapshot)", "description": "errow-runs-*: run.json is rewritten as the run progresses, so the maximum llm_usage.cost per run_name is the run's current spend (a sum would double count snapshots).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-runs"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 47},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 5}, {"color": "red", "value": 20}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Max/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-runs"}, "timeField": "@timestamp", "query": "_exists_:llm_usage.cost",
+        "metrics": [{"id": "1", "type": "max", "field": "llm_usage.cost"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "run_name", "settings": {"size": "10", "order": "desc", "orderBy": "1", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 21, "type": "table", "title": "Latest run snapshots", "description": "errow-runs-*: newest 50 run.json snapshots (status, scan mode, token usage).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-runs"},
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 47},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}, "sortBy": [{"displayName": "@timestamp", "desc": true}]},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-runs"}, "timeField": "@timestamp", "query": "*",
+        "metrics": [{"id": "1", "type": "raw_data", "settings": {"size": "50"}}],
+        "bucketAggs": []
+      }],
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"_id": true, "_index": true, "_type": true, "highlight": true, "sort": true, "instruction": true, "user_instruction": true}, "indexByName": {"@timestamp": 0, "run_name": 1, "status": 2, "scan_mode": 3, "scope_mode": 4, "llm_usage.total_tokens": 5, "llm_usage.cost": 6}, "renameByName": {}}}]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "LLM cost per model (USD)", "description": "errow-llm-logs-*: sum of cost_usd (one record per LLM request; prompt bodies are never stored).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 55},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4, "custom": {"lineWidth": 1, "fillOpacity": 30, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"}, "timeField": "@timestamp", "query": "_exists_:cost_usd",
+        "metrics": [{"id": "1", "type": "sum", "field": "cost_usd"}],
+        "bucketAggs": [
+          {"id": "2", "type": "terms", "field": "model", "settings": {"size": "6", "order": "desc", "orderBy": "_term", "min_doc_count": "1"}},
+          {"id": "3", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}
+        ]
+      }]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "LLM request latency (ms)", "description": "errow-llm-logs-*: p50 and p95 of duration_ms.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 55},
+      "fieldConfig": {"defaults": {"unit": "ms", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"}, "timeField": "@timestamp", "query": "_exists_:duration_ms",
+        "metrics": [{"id": "1", "type": "percentiles", "field": "duration_ms", "settings": {"percents": ["50", "95"]}}],
+        "bucketAggs": [{"id": "2", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}]
+      }]
+    },
+    {
+      "id": 24, "type": "piechart", "title": "LLM request outcome", "description": "errow-llm-logs-*: outcome (success, error, ...).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 55},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-llm"}, "timeField": "@timestamp", "query": "_exists_:outcome",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "outcome", "settings": {"size": "8", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 25, "type": "timeseries", "title": "MCP events by decision (stored)", "description": "errow-mcp-*: errow-mcp exec events and gateway cs3.ai.tool_call audit events.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-mcp"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 63},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 40, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "denied"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+        {"matcher": {"id": "byName", "options": "allowed"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-mcp"}, "timeField": "@timestamp", "query": "_exists_:decision",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [
+          {"id": "2", "type": "terms", "field": "decision", "settings": {"size": "8", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}},
+          {"id": "3", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}
+        ]
+      }]
+    },
+    {
+      "id": 26, "type": "bargauge", "title": "Most requested tools (stored)", "description": "errow-mcp-*: tool.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-mcp"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 63},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-errow-mcp"}, "timeField": "@timestamp", "query": "_exists_:tool",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "tool", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    }
+  ]
+}

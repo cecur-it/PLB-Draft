@@ -1,0 +1,200 @@
+# Traces: PROMPT §2.3 (errow-mcp bridge); CONTRACT §2 (:9103 mTLS, /pki), §4.5 (MCP policy), §11 (RUNTIME.md notes).
+# Standalone reference manifests for the errow-mcp bridge (Deployment, Service, NetworkPolicy, PodDisruptionBudget).
+# The deploy tier (kubernetes/**) is authoritative for namespace and cluster wiring; these are drop-in defaults:
+#   * Secret errow-mcp-pki         keys ca.crt, tls.crt, tls.key (cert-manager output for CN/SAN errow-mcp); file names below match
+#   * Secret errow-dind-client     keys ca.pem, cert.pem, key.pem (docker client TLS material for errow-dind:2376)
+#   * PVC errow-runs               shared with the errow scan runner (mounted read-only here)
+#   * PVC errow-ndjson             shared with the shipper and Fluent Bit (the bridge appends mcp_events.ndjson)
+# Probes are exec probes on purpose: every endpoint requires a client certificate, which kubelet HTTP probes cannot present.
+# A single replica keeps the per-tenant/per-target rate limits exact (they are counted in-process).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: errow-mcp
+  labels:
+    app.kubernetes.io/name: errow-mcp
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-mcp
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: errow-mcp
+  labels:
+    app.kubernetes.io/name: errow-mcp
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-mcp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: errow-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: errow-mcp
+        app.kubernetes.io/part-of: vendetta-stack
+        app.kubernetes.io/component: errow-mcp
+    spec:
+      serviceAccountName: errow-mcp
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: errow-mcp
+          image: vendetta-stack/errow-mcp:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mcp
+              containerPort: 9103
+              protocol: TCP
+          env:
+            - {name: MCP_LIVE, value: "false"}
+            - {name: MCP_PORT, value: "9103"}
+            - {name: MCP_POLICY_FILE, value: /app/policy.yaml}
+            - {name: MCP_PKI_DIR, value: /pki}
+            - {name: MCP_ALLOWED_CLIENTS, value: "llm-gateway,errow,errow-mcp"}
+            - {name: MCP_SANDBOX_NETWORK, value: offensive}
+            - {name: MCP_EVENTS_FILE, value: /var/log/errow/mcp_events.ndjson}
+            - {name: MCP_EVENTS_MAX_BYTES, value: "52428800"}
+            - {name: MCP_EVENTS_KEEP, value: "5"}
+            - {name: ERROW_RUNS_DIR, value: /workspace/errow_runs}
+            - {name: DOCKER_HOST, value: "tcp://errow-dind:2376"}
+            - {name: DOCKER_TLS_VERIFY, value: "1"}
+            - {name: DOCKER_CERT_PATH, value: /certs/client}
+            - {name: errow_IMAGE, value: vendetta-stack/errow-sandbox:1.0.0}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          startupProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["python", "/app/server.py", "--healthcheck"]
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - {name: pki, mountPath: /pki, readOnly: true}
+            - {name: docker-client, mountPath: /certs/client, readOnly: true}
+            - {name: errow-runs, mountPath: /workspace/errow_runs, readOnly: true}
+            - {name: errow-ndjson, mountPath: /var/log/errow}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: pki
+          secret:
+            secretName: errow-mcp-pki
+            defaultMode: 0440
+            items:
+              - {key: ca.crt, path: ca.crt}
+              - {key: tls.crt, path: errow-mcp.crt}
+              - {key: tls.key, path: errow-mcp.key}
+        - name: docker-client
+          secret:
+            secretName: errow-dind-client
+            defaultMode: 0440
+        - name: errow-runs
+          persistentVolumeClaim:
+            claimName: errow-runs
+            readOnly: true
+        - name: errow-ndjson
+          persistentVolumeClaim:
+            claimName: errow-ndjson
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: errow-mcp
+  labels:
+    app.kubernetes.io/name: errow-mcp
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-mcp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: errow-mcp
+  ports:
+    - name: mcp
+      port: 9103
+      targetPort: mcp
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: errow-mcp
+  labels:
+    app.kubernetes.io/name: errow-mcp
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-mcp
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: errow-mcp
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: llm-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - {port: 9103, protocol: TCP}
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {port: 53, protocol: UDP}
+        - {port: 53, protocol: TCP}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: errow-dind
+      ports:
+        - {port: 2376, protocol: TCP}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: errow-mcp
+  labels:
+    app.kubernetes.io/name: errow-mcp
+    app.kubernetes.io/part-of: vendetta-stack
+    app.kubernetes.io/component: errow-mcp
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: errow-mcp

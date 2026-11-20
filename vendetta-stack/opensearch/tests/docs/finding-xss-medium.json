@@ -1,0 +1,57 @@
+{
+  "@timestamp": "2026-11-12T09:21:07.903Z",
+  "stream": "findings",
+  "run": "scan-target-vendetta-lab-8080_3f9a",
+  "source": "errow",
+  "doc_id": "b52e8a1d90c47f36a8d1e0b7c35f92a6d4e81b0c7f53a29e6d18c4b0a7e35f91",
+  "ruleId": "CWE-79",
+  "ruleIndex": 1,
+  "level": "warning",
+  "message": {
+    "text": "Reflected XSS in the search view (q parameter)\n\nThe q value from the URL fragment is written into the DOM with innerHTML and executes script in the victim's session."
+  },
+  "locations": [
+    {
+      "physicalLocation": {
+        "artifactLocation": { "uri": "frontend/src/app/search-result/search-result.component.ts" },
+        "region": { "startLine": 42, "endLine": 47 }
+      }
+    },
+    { "logicalLocations": [ { "fullyQualifiedName": "/#/search", "kind": "endpoint" } ] }
+  ],
+  "partialFingerprints": {
+    "primaryLocationLineHash": "5d7e1a0c93b64f28e1a5c7094d3b82f6a0e91c4d7b5382f1a6c0e9d47b3a8f25"
+  },
+  "properties": {
+    "security-severity": "5.4",
+    "errow_vuln_class_hash": "c3b1a7e09d5f4826b0e7a1d93c5f8e24a6b0d7c1e9f35a82d4b6c0e1f7a39d58",
+    "synthetic_location": false,
+    "errow": {
+      "id": "vuln-0002",
+      "severity": "medium",
+      "cvss": 5.4,
+      "timestamp": "2026-11-12T09:21:07.903411+00:00",
+      "target": "http://scan-target.vendetta.lab:8080",
+      "endpoint": "/#/search",
+      "method": "GET",
+      "cwe": "CWE-79",
+      "impact": "A crafted link executes attacker script in the victim's authenticated session.",
+      "technical_analysis": "The payload <img src=x onerror=alert(1)> in q is reflected unencoded into the result heading.",
+      "remediation_steps": "Render the value with textContent or the framework's escaping binding and add a restrictive Content-Security-Policy.",
+      "counterevidence": "No Content-Security-Policy header is sent, so inline handlers are not blocked.",
+      "confidence": "high",
+      "poc": {
+        "description": "Open /#/search?q=<img src=x onerror=alert(1)> in a logged-in browser; the alert fires.",
+        "script_available": false
+      }
+    }
+  },
+  "rule": {
+    "id": "CWE-79",
+    "name": "Reflected XSS in the search view (q parameter)",
+    "shortDescription": { "text": "Reflected XSS in the search view (q parameter)" },
+    "defaultConfiguration": { "level": "warning" },
+    "properties": { "security-severity": "5.4", "tags": ["security", "CWE-79", "stride:T"] },
+    "helpUri": "https://cwe.mitre.org/data/definitions/79.html"
+  }
+}

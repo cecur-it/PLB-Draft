@@ -1,0 +1,4 @@
+# Traces: PROMPT §1 Tier 1 (Grafana, air-gapped)
+# No app plugin is provisioned. The file exists so Grafana does not log level=error for a missing directory.
+apiVersion: 1
+apps: []

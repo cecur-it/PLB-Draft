@@ -1,0 +1,126 @@
+== usage and argument handling
+  ok   --help exits 0
+  ok   --help documents modes
+  ok   --version
+  ok   unknown mode is a usage error (64)
+  ok   invalid ERROW_MODE is a usage error (64)
+  ok   invalid profile is a configuration error (78)
+== dry-run: gateway wiring and secrets hygiene
+  ok   scan dry-run exits 0
+  ok   LLM_API_BASE points at the gateway
+  ok   errow_LLM defaults to openai/<security model>
+  ok   streaming disabled
+  ok   telemetry off by default
+  ok   Errow cloud URL blackholed by default
+  ok   sandbox image default
+  ok   DOCKER_HOST defaults to the DinD sidecar (no certs mounted)
+  ok   scan command is assembled from env
+  ok   the bearer token is never printed
+  ok   OLLAMA_SECURITY_MODEL selects the default model
+  ok   tenant/incident headers go through LLM_EXTRA_HEADERS
+  ok   STACK_VERSION selects the sandbox tag
+  ok   an explicit errow_LLM wins over the security model
+  ok   a non-openai errow_LLM is refused on the gateway route
+  ok   view dry-run shows the pinned viewer port
+  ok   errow subcommands pass through unchanged
+  ok   scan without a target is a usage error
+  ok   dry-run tolerates a missing token file
+  ok   dry-run reports the missing token file
+  ok   a real start without the token file fails (66)
+== telemetry / cloud opt-in
+  ok   telemetry opt-in honoured (onprem)
+  ok   airgap never sends telemetry
+  ok   ERROW_CLOUD_ENABLED restores the cloud URL
+== fail-closed (CONTRACT §4.4)
+  ok   onprem + GEMINI_API_KEY => exit 78
+  ok   GEMINI_API_KEY: FailClosedError reported
+  ok   GEMINI_API_KEY: value never echoed
+  ok   onprem + DEEPSEEK_API_KEY => exit 78
+  ok   DEEPSEEK_API_KEY: FailClosedError reported
+  ok   DEEPSEEK_API_KEY: value never echoed
+  ok   onprem + OPENAI_API_KEY => exit 78
+  ok   OPENAI_API_KEY: FailClosedError reported
+  ok   OPENAI_API_KEY: value never echoed
+  ok   onprem + ANTHROPIC_API_KEY => exit 78
+  ok   ANTHROPIC_API_KEY: FailClosedError reported
+  ok   ANTHROPIC_API_KEY: value never echoed
+  ok   onprem + OPENAI_API_KEY_FILE => exit 78
+  ok   OPENAI_API_KEY_FILE: FailClosedError reported
+  ok   OPENAI_API_KEY_FILE: value never echoed
+  ok   onprem + AWS_SECRET_ACCESS_KEY => exit 78
+  ok   AWS_SECRET_ACCESS_KEY: FailClosedError reported
+  ok   AWS_SECRET_ACCESS_KEY: value never echoed
+  ok   onprem + PERPLEXITY_API_KEY => exit 78
+  ok   PERPLEXITY_API_KEY: FailClosedError reported
+  ok   PERPLEXITY_API_KEY: value never echoed
+  ok   onprem + EXA_API_KEY => exit 78
+  ok   EXA_API_KEY: FailClosedError reported
+  ok   EXA_API_KEY: value never echoed
+  ok   airgap + cloud key => exit 78
+  ok   non-gateway LLM_API_KEY => exit 78
+  ok   LLM_API_KEY equal to the gateway token is accepted
+  ok   non-gateway LLM_API_BASE => exit 78
+  ok   non-openai/ model prefix => exit 78
+  ok   direct route outside profile cloud => exit 78
+  ok   airgap + ERROW_CLOUD_ENABLED => exit 78
+  ok   stale cloud key persisted in ~/.errow/cli-config.json => exit 78
+  ok   stale key is named with its location
+  ok   stale value not echoed
+  ok   profile cloud may hold provider keys
+  ok   cloud profile + direct route + key file accepted
+  ok   direct-route key never printed
+  ok   direct route requires LLM_API_KEY_FILE
+== target allow-list
+  ok   target matching a glob is accepted
+  ok   target outside the allow-list => 77
+== errow-config.yaml defaults and llm-providers.yaml policy
+  ok   config file supplies the default scan mode
+  ok   dry-run reports the loaded config file
+  ok   the environment wins over the config file
+  ok   profile overlay applies
+  ok   a missing config file is not an error
+  ok   a secret-like name in the config file => exit 78
+  ok   rejected config value never echoed
+  ok   invalid YAML => exit 78
+  ok   the shipped errow-config.yaml loads
+  ok   shipped default scan mode is quick
+  ok   the shipped config restricts targets to the lab domain
+  ok   the shipped errow-config.yaml is valid for profile cloud
+  ok   the shipped errow-config.yaml is valid for profile onprem
+  ok   the shipped errow-config.yaml is valid for profile airgap
+  ok   the shipped errow-config.yaml is valid for profile edge
+  ok   the security model passes the shipped llm-providers.yaml policy
+  ok   gemma4:31b is approved
+  ok   an unapproved security model degrades instead of refusing to start
+  ok   the degraded warning names the model and profile
+  ok   the degraded run falls back to the primary model
+  ok   the dry-run flags the degraded run
+  ok   an operator-declared degraded run still starts
+  ok   an explicitly unapproved model => exit 78
+  ok   the policy violation names the model and profile
+  ok   cloud degrades identically
+  ok   the allow-list also applies to the gateway route of profile cloud
+  ok   chat completions API forced (the gateway has no Responses API)
+== scan mode: env passthrough, logging, exit code
+  ok   Errow's exit code is propagated
+  ok   Errow sees the gateway environment
+  ok   tenant header exported
+  ok   token= is redacted in the stream
+  ok   redacted value is gone from stdout
+  ok   cli.log carries the redacted stream
+  ok   cli.log has no bearer token
+  ok   flags filled from env
+  ok   explicit flags win over env
+  ok   unreadable instruction file => 66
+  ok   missing workdir is created (idempotent bring-up)
+  ok   errow_runs created
+== TCP helpers for health checks
+  ok   idle healthcheck passes with DinD up and the gateway reachable
+  ok   idle healthcheck fails when the gateway is unreachable
+  ok   healthcheck fails closed on a cloud key
+  ok   view healthcheck fails before the viewer reports a state
+== view mode: wait, serve, redact, follow, stop
+  ok   no viewer link before the viewer has served
+  ok   view healthcheck is green while waiting for the first run
+touch: out of range or illegal time specification: YYYY-MM-DDThh:mm:SS[.frac][tz]
+FAILED at line 281

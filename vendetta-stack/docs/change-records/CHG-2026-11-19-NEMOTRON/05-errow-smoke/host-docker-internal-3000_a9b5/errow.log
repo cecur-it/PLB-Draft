@@ -1,0 +1,261 @@
+2026-11-19 10:36:22.065 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: Starting errow scan host-docker-internal-3000_a9b5 (image=vendetta-stack/errow-sandbox:1.0.0, max_turns=500, interactive=False, run_dir=/workspace/errow_runs/host-docker-internal-3000_a9b5)
+2026-11-19 10:36:22.066 INFO    host-docker-internal-3000_a9b5 - errow.config.models: OpenAI API route for openai/cs3-errow-security: chat_completions
+2026-11-19 10:36:22.066 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: LLM model resolved: openai/cs3-errow-security
+2026-11-19 10:36:22.067 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: Bringing up sandbox session for scan host-docker-internal-3000_a9b5
+2026-11-19 10:36:22.067 DEBUG   host-docker-internal-3000_a9b5 - errow.runtime.backends: Selected sandbox backend: docker
+2026-11-19 10:36:22.067 INFO    host-docker-internal-3000_a9b5 - errow.runtime.session_manager: Creating sandbox session for scan host-docker-internal-3000_a9b5 (backend=docker, image=vendetta-stack/errow-sandbox:1.0.0)
+2026-11-19 10:36:22.227 DEBUG   host-docker-internal-3000_a9b5 - errow.runtime.docker_client: Creating sandbox container: image=vendetta-stack/errow-sandbox:1.0.0 caps=['NET_ADMIN', 'NET_RAW'] exposed_ports=[48080]
+2026-11-19 10:36:22.324 INFO    host-docker-internal-3000_a9b5 - errow.runtime.docker_client: Sandbox container created: id=e0b05643f930 image=vendetta-stack/errow-sandbox:1.0.0
+2026-11-19 10:36:22.835 DEBUG   host-docker-internal-3000_a9b5 - errow.runtime.session_manager: Caido sidecar bridged: http://127.0.0.1:36425 -> host.docker.internal:54625
+2026-11-19 10:36:22.835 INFO    host-docker-internal-3000_a9b5 - errow.runtime.session_manager: Sandbox session for scan host-docker-internal-3000_a9b5 ready and cached
+2026-11-19 10:36:22.836 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: Sandbox ready for scan host-docker-internal-3000_a9b5
+2026-11-19 10:36:22.841 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: scan_modes/quick -> quick
+2026-11-19 10:36:22.847 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: tooling/agent_browser -> agent_browser
+2026-11-19 10:36:22.847 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: tooling/python -> python
+2026-11-19 10:36:22.848 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: analysis/counterevidence -> counterevidence
+2026-11-19 10:36:22.848 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: analysis/severity_calibration -> severity_calibration
+2026-11-19 10:36:22.849 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: Loaded skill: coordination/root_agent -> root_agent
+2026-11-19 10:36:22.849 DEBUG   host-docker-internal-3000_a9b5 - errow.skills: load_skills: 6 skill(s) resolved
+2026-11-19 10:36:22.863 DEBUG   host-docker-internal-3000_a9b5 - errow.agents.prompt: render_system_prompt: scan_mode=quick root=True whitebox=False skills=6 prompt_len=103485
+2026-11-19 10:36:22.864 INFO    host-docker-internal-3000_a9b5 - errow.agents.factory: Built root agent 'Root Agent' (skills=0, tools=44, scan_mode=quick, whitebox=False)
+2026-11-19 10:36:22.867 INFO    host-docker-internal-3000_a9b5 - errow.core.agents: agent.register ba704a16 (Root Agent) parent=-
+2026-11-19 10:36:22.896 INFO    host-docker-internal-3000_a9b5 - errow.runtime.caido_bootstrap: Bootstrapping Caido client (host=http://127.0.0.1:36425, container=http://127.0.0.1:48080)
+2026-11-19 10:36:22.924 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating trace
+2026-11-19 10:36:22.926 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Setting current trace: no-op
+2026-11-19 10:36:22.926 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:22.946 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:22.946 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 1, current_agent=Root Agent
+2026-11-19 10:36:22.946 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:22.949 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:22.952 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:22.954 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:36:23.260 INFO    host-docker-internal-3000_a9b5 - errow.runtime.caido_bootstrap: Caido project selected: bb76a103-0c2e-4053-9ea2-dc28c62de1ab
+2026-11-19 10:36:28.321 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:36:28.329 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=286af83d2bf04dd5af6c8640ceea448c response_id=- stream=0 duration_ms=5377 ttft_ms=- req_bytes=237751 res_bytes=367 finish=- in=57051 out=45 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:36:28.392 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:36:28.441 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:36:28.445 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:36:28.446 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:36:28.447 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:36:28.449 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:28.733 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 1 complete, next_step type=NextStepRunAgain
+2026-11-19 10:36:28.744 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 2, current_agent=Root Agent
+2026-11-19 10:36:28.744 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:28.747 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:28.752 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:28.754 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:36:32.595 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:36:32.601 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=df2f3b13df504caa81e2cb127aa6d0f1 response_id=- stream=0 duration_ms=3851 ttft_ms=- req_bytes=240443 res_bytes=383 finish=- in=58000 out=63 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:36:32.604 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:36:32.620 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:36:32.625 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:36:32.628 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:36:32.629 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:36:32.633 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:32.861 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 2 complete, next_step type=NextStepRunAgain
+2026-11-19 10:36:32.874 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 3, current_agent=Root Agent
+2026-11-19 10:36:32.874 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:32.876 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:32.882 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:32.884 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:36:35.950 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:36:35.951 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=8370d3396da041ad807953f95acce310 response_id=- stream=0 duration_ms=3073 ttft_ms=- req_bytes=242291 res_bytes=509 finish=- in=58625 out=76 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:36:35.952 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:36:35.964 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:36:35.968 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:36:35.970 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:36:35.970 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:36:35.971 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:36.178 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 3 complete, next_step type=NextStepRunAgain
+2026-11-19 10:36:36.185 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 4, current_agent=Root Agent
+2026-11-19 10:36:36.185 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:36.186 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:36.188 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:36.189 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:36:39.354 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:36:39.359 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=1b5d029977b647f18c08b6854c7d37b9 response_id=- stream=0 duration_ms=3171 ttft_ms=- req_bytes=244061 res_bytes=343 finish=- in=59481 out=42 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:36:39.362 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:36:39.377 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:36:39.382 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:36:39.384 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:36:39.385 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:36:39.388 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:44.612 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 4 complete, next_step type=NextStepRunAgain
+2026-11-19 10:36:44.630 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 5, current_agent=Root Agent
+2026-11-19 10:36:44.630 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:44.633 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:44.637 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:44.640 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:36:58.277 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:36:58.281 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=acffe7f67fbc498998efecea6868a7a6 response_id=- stream=0 duration_ms=13646 ttft_ms=- req_bytes=256645 res_bytes=367 finish=- in=64317 out=52 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:36:58.284 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:36:58.296 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:36:58.301 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:36:58.303 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:36:58.304 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:36:58.306 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:58.464 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 5 complete, next_step type=NextStepRunAgain
+2026-11-19 10:36:58.477 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 6, current_agent=Root Agent
+2026-11-19 10:36:58.477 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:58.479 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:36:58.484 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:36:58.489 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:16.447 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:16.453 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=341e10598c8f434393cc9196c73de2dc response_id=- stream=0 duration_ms=17969 ttft_ms=- req_bytes=262515 res_bytes=2974 finish=- in=66248 out=688 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:16.456 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:16.471 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:16.477 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (0 results)
+2026-11-19 10:37:16.479 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:16.480 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:37:16.483 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:16.485 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool create_vulnerability_report
+2026-11-19 10:37:16.517 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Added vulnerability report: vuln-0001 - SQL Injection in Product Search
+2026-11-19 10:37:16.518 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.posthog: posthog disabled; skipping event finding_reported
+2026-11-19 10:37:16.518 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.scarf: scarf disabled; skipping event finding_reported
+2026-11-19 10:37:16.524 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:17.295 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Saved 1 new vulnerability report(s) to: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities
+2026-11-19 10:37:17.295 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:17.297 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (1 results)
+2026-11-19 10:37:17.298 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:17.298 INFO    host-docker-internal-3000_a9b5 - errow.tools.reporting.tool: Vulnerability report created: id=vuln-0001 severity=critical cvss=9.1 title=SQL Injection in Product Search
+2026-11-19 10:37:17.298 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool create_vulnerability_report completed.
+2026-11-19 10:37:17.298 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 6 complete, next_step type=NextStepRunAgain
+2026-11-19 10:37:17.314 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 7, current_agent=Root Agent
+2026-11-19 10:37:17.314 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:17.315 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:37:17.319 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:17.320 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:31.233 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:31.239 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=6c35c7d33cfb49af856cf01533bc0597 response_id=- stream=0 duration_ms=13921 ttft_ms=- req_bytes=265668 res_bytes=2795 finish=- in=67008 out=633 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:31.242 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:31.256 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:31.260 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:31.266 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (1 results)
+2026-11-19 10:37:31.268 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:31.270 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:37:31.272 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:31.274 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool create_vulnerability_report
+2026-11-19 10:37:31.277 INFO    host-docker-internal-3000_a9b5 - errow.config.models: OpenAI API route for openai/cs3-errow-security: chat_completions
+2026-11-19 10:37:31.281 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:31.281 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:34.268 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:34.270 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=c8420d8de80a433991a2eac88af15f96 response_id=- stream=0 duration_ms=2990 ttft_ms=- req_bytes=5212 res_bytes=741 finish=- in=1213 out=86 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:34.270 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:34.281 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:34.285 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:34.288 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (1 results)
+2026-11-19 10:37:34.290 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:34.291 INFO    host-docker-internal-3000_a9b5 - errow.report.dedupe: Deduplication check: is_duplicate=False, confidence=0.92, reason=Different endpoints and parameters: candidate targets /rest/user/login with SQL injection in the ema
+2026-11-19 10:37:34.298 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Added vulnerability report: vuln-0002 - Authentication Bypass via SQL Injection
+2026-11-19 10:37:34.299 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.posthog: posthog disabled; skipping event finding_reported
+2026-11-19 10:37:34.300 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.scarf: scarf disabled; skipping event finding_reported
+2026-11-19 10:37:34.310 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:34.327 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Saved 1 new vulnerability report(s) to: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities
+2026-11-19 10:37:34.327 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:34.329 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (2 results)
+2026-11-19 10:37:34.331 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:34.331 INFO    host-docker-internal-3000_a9b5 - errow.tools.reporting.tool: Vulnerability report created: id=vuln-0002 severity=critical cvss=9.1 title=Authentication Bypass via SQL Injection
+2026-11-19 10:37:34.331 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool create_vulnerability_report completed.
+2026-11-19 10:37:34.333 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 7 complete, next_step type=NextStepRunAgain
+2026-11-19 10:37:34.355 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 8, current_agent=Root Agent
+2026-11-19 10:37:34.355 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:34.358 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:37:34.362 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:34.363 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:46.611 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:46.617 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=3239537aa147410c8b7cbca32b24ff28 response_id=- stream=0 duration_ms=12255 ttft_ms=- req_bytes=268600 res_bytes=2611 finish=- in=67714 out=637 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:46.620 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:46.635 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:46.639 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:46.645 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (2 results)
+2026-11-19 10:37:46.647 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:46.649 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:37:46.652 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:46.654 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool create_vulnerability_report
+2026-11-19 10:37:46.659 INFO    host-docker-internal-3000_a9b5 - errow.config.models: OpenAI API route for openai/cs3-errow-security: chat_completions
+2026-11-19 10:37:46.664 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:46.664 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:49.709 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:49.710 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=8ea9fc7826d245bc8ca47f0a73bc1aa6 response_id=- stream=0 duration_ms=3046 ttft_ms=- req_bytes=6206 res_bytes=599 finish=- in=1448 out=69 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:49.711 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:49.721 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:49.724 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:49.727 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (2 results)
+2026-11-19 10:37:49.728 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:49.728 INFO    host-docker-internal-3000_a9b5 - errow.report.dedupe: Deduplication check: is_duplicate=False, confidence=0.92, reason=Different endpoint and root cause: candidate is path traversal in FTP directory listing at /ftp/ whi
+2026-11-19 10:37:49.735 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Added vulnerability report: vuln-0003 - File Disclosure via Path Traversal
+2026-11-19 10:37:49.736 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.posthog: posthog disabled; skipping event finding_reported
+2026-11-19 10:37:49.737 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.scarf: scarf disabled; skipping event finding_reported
+2026-11-19 10:37:49.745 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:49.765 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Saved 1 new vulnerability report(s) to: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities
+2026-11-19 10:37:49.766 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:49.768 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (3 results)
+2026-11-19 10:37:49.769 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:49.769 INFO    host-docker-internal-3000_a9b5 - errow.tools.reporting.tool: Vulnerability report created: id=vuln-0003 severity=high cvss=7.5 title=File Disclosure via Path Traversal
+2026-11-19 10:37:49.769 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool create_vulnerability_report completed.
+2026-11-19 10:37:49.771 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 8 complete, next_step type=NextStepRunAgain
+2026-11-19 10:37:49.795 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 9, current_agent=Root Agent
+2026-11-19 10:37:49.795 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:49.798 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:37:49.802 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:49.804 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:51.394 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:51.395 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=d67826b88fa94b9983d64064275a6939 response_id=- stream=0 duration_ms=1596 ttft_ms=- req_bytes=271395 res_bytes=368 finish=- in=68425 out=55 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:51.396 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:51.411 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:51.414 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:51.418 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (3 results)
+2026-11-19 10:37:51.420 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:51.420 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:37:51.422 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:51.424 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool list_reports
+2026-11-19 10:37:51.425 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool list_reports completed.
+2026-11-19 10:37:51.425 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 9 complete, next_step type=NextStepRunAgain
+2026-11-19 10:37:51.437 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 10, current_agent=Root Agent
+2026-11-19 10:37:51.437 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:51.438 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:37:51.443 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:51.446 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:37:53.780 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:37:53.781 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=739f22d6f4e644f49b8ba95bdf20a7c1 response_id=- stream=0 duration_ms=2341 ttft_ms=- req_bytes=272906 res_bytes=364 finish=- in=68846 out=55 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:37:53.781 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:37:53.794 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:37:53.799 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:37:53.802 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (3 results)
+2026-11-19 10:37:53.804 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:37:53.805 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:37:53.806 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:53.807 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool list_reports
+2026-11-19 10:37:53.807 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool list_reports completed.
+2026-11-19 10:37:53.808 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 10 complete, next_step type=NextStepRunAgain
+2026-11-19 10:37:53.821 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Starting turn 11, current_agent=Root Agent
+2026-11-19 10:37:53.821 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:53.822 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: No conversation_id available for request
+2026-11-19 10:37:53.824 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:37:53.826 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Calling LLM
+2026-11-19 10:38:06.003 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Received model response
+2026-11-19 10:38:06.005 DEBUG   host-docker-internal-3000_a9b5 - errow.llm.request_log: llm_request route=openai provider=openai upstream=- upstream_error=- model=openai/cs3-errow-security host=host.docker.internal outcome=success status=200 request_id=58842e4c283c4be5bf6a33fe055bcef6 response_id=- stream=0 duration_ms=12182 ttft_ms=- req_bytes=273902 res_bytes=3242 finish=- in=69114 out=609 cached=0 cost=- agent=ba704a16 attempt=0
+2026-11-19 10:38:06.006 DEBUG   host-docker-internal-3000_a9b5 - errow.report.usage: LiteLLM cost estimate unavailable for model cs3-errow-security
+2026-11-19 10:38:06.018 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:38:06.022 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:38:06.024 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (3 results)
+2026-11-19 10:38:06.027 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:38:06.028 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Processing output item type=function_call class=ResponseFunctionToolCall
+2026-11-19 10:38:06.029 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tracing is disabled. Not creating span
+2026-11-19 10:38:06.031 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Invoking tool finish_scan
+2026-11-19 10:38:06.032 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Updated scan final fields
+2026-11-19 10:38:06.039 INFO    host-docker-internal-3000_a9b5 - errow.report.coverage: Saved coverage record to: /workspace/errow_runs/host-docker-internal-3000_a9b5/coverage.json (0 surface(s), 1 gap(s))
+2026-11-19 10:38:06.040 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Saved final penetration test report to: /workspace/errow_runs/host-docker-internal-3000_a9b5/penetration_test_report.md
+2026-11-19 10:38:06.043 INFO    host-docker-internal-3000_a9b5 - errow.report.writer: Updated vulnerability index: /workspace/errow_runs/host-docker-internal-3000_a9b5/vulnerabilities.csv
+2026-11-19 10:38:06.047 INFO    host-docker-internal-3000_a9b5 - errow.report.sarif: Wrote SARIF 2.1.0 report: /workspace/errow_runs/host-docker-internal-3000_a9b5/findings.sarif (3 results)
+2026-11-19 10:38:06.048 INFO    host-docker-internal-3000_a9b5 - errow.report.state: Essential scan data saved to: /workspace/errow_runs/host-docker-internal-3000_a9b5
+2026-11-19 10:38:06.049 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.posthog: posthog disabled; skipping event scan_ended
+2026-11-19 10:38:06.050 DEBUG   host-docker-internal-3000_a9b5 - errow.telemetry.scarf: scarf disabled; skipping event scan_ended
+2026-11-19 10:38:06.050 INFO    host-docker-internal-3000_a9b5 - errow.tools.finish.tool: finish_scan: completed scan with 3 vulnerability report(s)
+2026-11-19 10:38:06.051 INFO    host-docker-internal-3000_a9b5 - errow.core.agents: agent.status ba704a16=completed
+2026-11-19 10:38:06.053 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Tool finish_scan completed.
+2026-11-19 10:38:06.055 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Turn 11 complete, next_step type=NextStepFinalOutput
+2026-11-19 10:38:06.062 DEBUG   host-docker-internal-3000_a9b5 - openai.agents: Resetting current trace
+2026-11-19 10:38:06.065 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: Tearing down sandbox session for scan host-docker-internal-3000_a9b5
+2026-11-19 10:38:06.339 INFO    host-docker-internal-3000_a9b5 - errow.runtime.session_manager: Cleaned up sandbox session for scan host-docker-internal-3000_a9b5
+2026-11-19 10:38:06.342 INFO    host-docker-internal-3000_a9b5 - errow.core.runner: errow scan host-docker-internal-3000_a9b5 done

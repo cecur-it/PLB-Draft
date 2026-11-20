@@ -1,0 +1,219 @@
+{
+  "uid": "cs3-vendetta-overview",
+  "title": "Vendetta Stack / Vendetta XDR overview",
+  "description": "Detections flowing through the pipeline (Prometheus: cs3_pipeline_vendetta_alerts_total, cs3_sp_vendetta_*) and what is stored in OpenSearch vendetta-alerts-* (severity, agents, MITRE, AI verdicts).",
+  "tags": ["vendetta-stack", "vendetta", "xdr", "siem"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "timezone": "utc",
+  "time": {"from": "now-24h", "to": "now"},
+  "annotations": {"list": []},
+  "links": [
+    {"title": "Pipeline health", "type": "link", "url": "/d/cs3-pipeline-health", "icon": "dashboard", "targetBlank": false},
+    {"title": "Errow offense", "type": "link", "url": "/d/cs3-errow-offense", "icon": "dashboard", "targetBlank": false},
+    {"title": "LLM SLO", "type": "link", "url": "/d/cs3-llm-slo", "icon": "dashboard", "targetBlank": false}
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "severity", "label": "Severity", "type": "custom", "multi": true, "includeAll": true,
+        "query": "critical,high,medium,low,info",
+        "options": [
+          {"selected": true, "text": "All", "value": "$__all"},
+          {"selected": false, "text": "critical", "value": "critical"},
+          {"selected": false, "text": "high", "value": "high"},
+          {"selected": false, "text": "medium", "value": "medium"},
+          {"selected": false, "text": "low", "value": "low"},
+          {"selected": false, "text": "info", "value": "info"}
+        ],
+        "current": {"selected": true, "text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {"id": 1, "type": "row", "title": "Pipeline view (Prometheus)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "panels": []},
+    {
+      "id": 2, "type": "stat", "title": "Alerts / min", "description": "rate of cs3_pipeline_vendetta_alerts_total across every Fluentd node.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(rate(cs3_pipeline_vendetta_alerts_total[$__rate_interval])) * 60"}]
+    },
+    {
+      "id": 3, "type": "stat", "title": "High + critical (1h)", "description": "Alerts with severity high or critical seen by Fluentd in the last hour.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 10}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(increase(cs3_pipeline_vendetta_alerts_total{severity=~\"high|critical\"}[1h])) or vector(0)", "instant": true}]
+    },
+    {
+      "id": 4, "type": "gauge", "title": "Max rule level (60 s window)", "description": "cs3_sp_vendetta_max_rule_level_60s from the Fluent Bit stream processor (Vendetta levels 0-15).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 15, "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 7}, {"color": "orange", "value": 10}, {"color": "red", "value": 13}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdMarkers": true, "showThresholdLabels": false},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max(cs3_sp_vendetta_max_rule_level_60s)"}]
+    },
+    {
+      "id": 5, "type": "stat", "title": "Alerts in last 60 s (edge)", "description": "cs3_sp_vendetta_alerts_60s: stream-processor tumbling-window count at the edge collectors.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum(cs3_sp_vendetta_alerts_60s)"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Alerts/s by severity", "description": "Severity is derived from rule.level (0-3 info, 4-6 low, 7-9 medium, 10-12 high, 13-15 critical).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "critical"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "dark-red"}}]},
+        {"matcher": {"id": "byName", "options": "high"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "medium"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]},
+        {"matcher": {"id": "byName", "options": "low"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+        {"matcher": {"id": "byName", "options": "info"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (severity) (rate(cs3_pipeline_vendetta_alerts_total{severity=~\"$severity\"}[$__rate_interval]))", "legendFormat": "{{severity}}"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Alerts/s by stream", "description": "vendetta.alerts, vendetta.fim, vendetta.vulnerability, vendetta.sca (classify_vendetta in stream_processors.lua).",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "fieldConfig": {"defaults": {"unit": "ops", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["sum", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (stream) (rate(cs3_pipeline_vendetta_alerts_total{severity=~\"$severity\"}[$__rate_interval]))", "legendFormat": "{{stream}}"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Edge window: alerts by rule level", "description": "cs3_sp_vendetta_alerts_by_level_60s{rule_level}: 60-second tumbling counts from the Fluent Bit stream processor.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 25, "showPoints": "never", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "sum by (rule_level) (cs3_sp_vendetta_alerts_by_level_60s)", "legendFormat": "level {{rule_level}}"}]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Edge window: alerts and max level per collector", "description": "One series per Fluent Bit edge_node.",
+      "datasource": {"type": "prometheus", "uid": "cs3-prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 10, "showPoints": "never"}}, "overrides": [{"matcher": {"id": "byRegexp", "options": "max level .*"}, "properties": [{"id": "custom.axisPlacement", "value": "right"}, {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}, {"id": "max", "value": 15}]}]},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {"refId": "A", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (edge_node) (cs3_sp_vendetta_alerts_60s)", "legendFormat": "alerts {{edge_node}}"},
+        {"refId": "B", "datasource": {"type": "prometheus", "uid": "cs3-prometheus"}, "expr": "max by (edge_node) (cs3_sp_vendetta_max_rule_level_60s)", "legendFormat": "max level {{edge_node}}"}
+      ]
+    },
+    {"id": 10, "type": "row", "title": "Stored detections (OpenSearch vendetta-alerts-*)", "collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 21}, "panels": []},
+    {
+      "id": 11, "type": "timeseries", "title": "Alerts over time by severity", "description": "Document count in vendetta-alerts-*, split by severity.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"lineWidth": 1, "fillOpacity": 40, "showPoints": "never", "drawStyle": "bars", "stacking": {"mode": "normal", "group": "A"}}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "critical"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "dark-red"}}]},
+        {"matcher": {"id": "byName", "options": "high"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+        {"matcher": {"id": "byName", "options": "medium"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]},
+        {"matcher": {"id": "byName", "options": "low"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+        {"matcher": {"id": "byName", "options": "info"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+      ]},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:$severity",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [
+          {"id": "2", "type": "terms", "field": "severity", "settings": {"size": "5", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}},
+          {"id": "3", "type": "date_histogram", "field": "@timestamp", "settings": {"interval": "auto", "min_doc_count": "0", "trimEdges": "0"}}
+        ]
+      }]
+    },
+    {
+      "id": 12, "type": "bargauge", "title": "Top agents", "description": "agent.name with the most alerts in the selected range.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 30},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:$severity",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "agent.name", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 13, "type": "bargauge", "title": "Top MITRE ATT&CK techniques", "description": "mitre.id (set by mitre_enrich at the edge, by the gateway for AI-enriched alerts, and by the SARIF mapping for Errow findings).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 30},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "purple", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:$severity AND _exists_:mitre.id",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "mitre.id", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 14, "type": "bargauge", "title": "Top rules", "description": "rule.id with the most alerts.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 30},
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:$severity",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "rule.id", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 15, "type": "piechart", "title": "Source stream", "description": "source.stream: vendetta.alerts, vendetta.fim, vendetta.vulnerability, vendetta.sca, errow.findings, cs3.ai.enrichment.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 38},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:$severity",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "source.stream", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 16, "type": "piechart", "title": "AI verdict", "description": "ai.verdict written by the sovereign LLM gateway (cs3.ai.enrichment upserts).",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 38},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "_exists_:ai.verdict",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "ai.verdict", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 17, "type": "piechart", "title": "AI engine (fallback tiers)", "description": "ai.engine: the model tag that produced the analysis, or Cecur Heuristics when both LLM tiers failed over.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 38},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": [], "fields": "/^Count$/", "values": true}, "pieType": "donut", "legend": {"displayMode": "table", "placement": "right", "values": ["value"]}, "tooltip": {"mode": "single"}},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "_exists_:ai.engine",
+        "metrics": [{"id": "1", "type": "count"}],
+        "bucketAggs": [{"id": "2", "type": "terms", "field": "ai.engine", "settings": {"size": "10", "order": "desc", "orderBy": "_count", "min_doc_count": "1"}}]
+      }]
+    },
+    {
+      "id": 18, "type": "table", "title": "Latest high and critical alerts", "description": "Newest 50 documents with severity high or critical.",
+      "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 46},
+      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}, "overrides": [{"matcher": {"id": "byName", "options": "severity"}, "properties": [{"id": "mappings", "value": [{"type": "value", "options": {"critical": {"color": "dark-red", "index": 0}, "high": {"color": "orange", "index": 1}}}]}, {"id": "custom.cellOptions", "value": {"type": "color-text"}}]}]},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}, "sortBy": [{"displayName": "@timestamp", "desc": true}]},
+      "targets": [{
+        "refId": "A", "datasource": {"type": "elasticsearch", "uid": "cs3-os-vendetta-alerts"}, "timeField": "@timestamp", "query": "severity:(critical OR high)",
+        "metrics": [{"id": "1", "type": "raw_data", "settings": {"size": "50"}}],
+        "bucketAggs": []
+      }],
+      "transformations": [{"id": "organize", "options": {"excludeByName": {"_id": true, "_index": true, "_type": true, "highlight": true, "sort": true, "full_log": true, "ai.needs_verification": true}, "indexByName": {"@timestamp": 0, "severity": 1, "rule.id": 2, "rule.level": 3, "agent.name": 4, "mitre.id": 5, "source.stream": 6, "ai.verdict": 7}, "renameByName": {}}}]
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+[errow-entrypoint] waiting for the Docker daemon at unix:///var/run/docker.sock (timeout 120s)
+[errow-entrypoint] sandbox image present: vendetta-stack/errow-sandbox:1.0.0
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test initiated                                                  │
+│                                                                              │
+│  Target  http://host.docker.internal:3000                                    │
+│  Output  errow_runs/host-docker-internal-3000_956b                           │
+│                                                                              │
+│  Vulnerabilities will be displayed in real-time.                             │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test in progress                                                │
+│                                                                              │
+│  Model openai/nemotron-3-nano:30b                                            │
+│  Vulnerabilities 0                                                           │
+│                                                                              │
+│  Input Tokens 170.1K  ·  Cached Tokens 168.9K                                │
+│  Output Tokens 154  ·  Cost $0.0000                                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test summary                                                    │
+│                                                                              │
+│  # Executive Summary                                                         │
+│                                                                              │
+│  The target responded with a 200 OK for both /robots.txt and                 │
+│  /rest/products/search?q=apple, indicating the application is reachable and  │
+│  serving content. No further testing performed.                              │
+│                                                                              │
+│  # Methodology                                                               │
+│                                                                              │
+│  Conducted a brief connectivity test against the OWASP Juice Shop instance.  │
+│                                                                              │
+│  # Technical Analysis                                                        │
+│                                                                              │
+│  The application is reachable and serving content on the default port.       │
+│                                                                              │
+│  # Recommendations                                                           │
+│                                                                              │
+│  No further testing was performed; consider expanding the assessment scope.  │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+
+╭─ errow ──────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  Penetration test completed                                                  │
+│                                                                              │
+│  Target  http://host.docker.internal:3000                                    │
+│  Vulnerabilities  0 (No exploitable vulnerabilities detected)                │
+│                                                                              │
+│  Input Tokens 227.7K  ·  Cached Tokens 226.3K  ·  Output Tokens 291          │
+│                                                                              │
+│  Output  /workspace/errow_runs/host-docker-internal-3000_956b                │
+│                                                                              │
+│  View    errow view host-docker-internal-3000_956b                           │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+errow.ai  ·  docs.errow.ai  ·  discord.gg/errow-ai
+
+EXIT=0

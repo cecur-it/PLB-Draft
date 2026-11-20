@@ -1,0 +1,92 @@
+{
+  "index_patterns": ["cfgaudit-runs-*"],
+  "priority": 200,
+  "version": 1,
+  "_meta": {
+    "description": "Cfgaudit manual audit run summaries and per-asset outcomes for the selected checks. These records do not assert complete framework compliance.",
+    "managed_by": "vendetta-stack/opensearch/apply.sh"
+  },
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 1,
+      "index.refresh_interval": "10s",
+      "index.codec": "best_compression",
+      "index.routing.allocation.require.box_type": "hot",
+      "index.mapping.total_fields.limit": 1000,
+      "index.mapping.ignore_malformed": false
+    },
+    "mappings": {
+      "dynamic": false,
+      "date_detection": false,
+      "numeric_detection": false,
+      "properties": {
+        "schema_version": { "type": "keyword" },
+        "record_type": { "type": "keyword" },
+        "@timestamp": { "type": "date" },
+        "doc_id": { "type": "keyword" },
+        "source": {
+          "properties": {
+            "system": { "type": "keyword" },
+            "stream": { "type": "keyword" }
+          }
+        },
+        "tool": {
+          "properties": {
+            "name": { "type": "keyword" },
+            "version": { "type": "keyword" }
+          }
+        },
+        "run": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "started_at": { "type": "date" },
+            "completed_at": { "type": "date" },
+            "status": { "type": "keyword" },
+            "min_severity": { "type": "keyword" },
+            "shadow_mode": { "type": "keyword" }
+          }
+        },
+        "status": { "type": "keyword" },
+        "summary": {
+          "properties": {
+            "files_total": { "type": "integer" },
+            "files_audited": { "type": "integer" },
+            "files_skipped": { "type": "integer" },
+            "assets_audited": { "type": "integer" },
+            "findings_total": { "type": "integer" },
+            "severity": {
+              "properties": {
+                "critical": { "type": "integer" },
+                "high": { "type": "integer" },
+                "medium": { "type": "integer" },
+                "low": { "type": "integer" },
+                "info": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "assets": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "name": { "type": "keyword", "ignore_above": 1024 },
+            "vendor": { "type": "keyword" },
+            "config_sha256": { "type": "keyword" },
+            "status": { "type": "keyword" },
+            "findings_total": { "type": "integer" },
+            "severity": {
+              "properties": {
+                "critical": { "type": "integer" },
+                "high": { "type": "integer" },
+                "medium": { "type": "integer" },
+                "low": { "type": "integer" },
+                "info": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "warnings": { "type": "text", "norms": false }
+      }
+    }
+  }
+}
